@@ -84,6 +84,28 @@ typedef struct {
 	int tipo;
 } Mesh;
 
+//Curva 2D da trasformare in 3D. Serve per Hermitte e Bezier
+typedef struct {
+	GLuint VAO;
+	GLuint VBO_G;
+	GLuint VBO_C;
+	GLuint EBO_indici;
+	int nTriangles;
+	// Vertici
+	vector<vec3> vertici;
+	vector<vec3> CP;
+	vector<vec4> colors;
+	vector<vec4> colCP;
+	vector<int> indici;
+	// Numero vertici
+	int nv;
+	//Matrice di Modellazione: Traslazione*Rotazione*Scala
+	mat4 Model;
+	int sceltaVS;
+	int sceltaFS;
+	string name;
+} Figura;
+
 static vector<Mesh> Scena;
 
 static vector<vec3> centri;
