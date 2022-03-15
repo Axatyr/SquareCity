@@ -40,10 +40,16 @@
     <ClInclude Include="Strutture.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
-    <ClInclude Include="geometria.h">
+    <ClInclude Include="Geometria.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
     <ClInclude Include="Hermitte.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="GestioneEventi.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
   </ItemGroup>
@@ -61,6 +67,12 @@
       <Filter>File di origine</Filter>
     </ClCompile>
     <ClCompile Include="Hermitte.cpp">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>File di origine</Filter>
+    </ClCompile>
+    <ClCompile Include="GestioneEventi.cpp">
       <Filter>File di origine</Filter>
     </ClCompile>
   </ItemGroup>

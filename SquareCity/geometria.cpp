@@ -1,4 +1,4 @@
-#include "geometria.h"
+#include "Geometria.h"
 void crea_cubo(Mesh* mesh, vec4 coloret, vec4 coloreb)
 {
 	mesh->vertici.push_back(vec3(-1.0, -1.0, 1.0));

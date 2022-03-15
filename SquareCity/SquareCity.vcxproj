@@ -153,8 +153,15 @@
     <None Include="vertexShader_riflessione.glsl" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="geometria.h" />
-    <ClInclude Include="Hermitte.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Geometria.h" />
+    <ClInclude Include="GestioneEventi.h" />
+    <ClInclude Include="Hermitte.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="Lib.h" />
     <ClInclude Include="objloader.hpp" />
     <ClInclude Include="ShaderMaker.h" />
@@ -162,8 +169,15 @@
     <ClInclude Include="Strutture.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="geometria.cpp" />
-    <ClCompile Include="Hermitte.cpp" />
+    <ClCompile Include="GestioneEventi.cpp" />
+    <ClCompile Include="Hermitte.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="objloader.cpp" />
     <ClCompile Include="ShaderMaker.cpp" />
     <ClCompile Include="SquareCity.cpp" />

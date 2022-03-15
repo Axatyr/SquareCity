@@ -1,34 +1,57 @@
 #include "Lib.h"
 #include "ShaderMaker.h"
-//#include "Geometria.h"
+#include "Geometria.h"
 //#include "GestioneTesto.h"
-//#include "GestioneEventi.h"
-#include "objloader.hpp"
+#include "GestioneEventi.h"
+
+//#include "objloader.hpp"
 //#include "VAO.h"
 //#include "Materiale.h"
 //#include "Loader.h"
+#define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
 // Dimensioni finestre
 int width = 1280;
 int height = 720;
 
 // Per il resize
-int w_up = width;
-int h_up = height;
+int widthRes = width;
+int heightRes = height;
 
 // Variabili per vertex shader
-static unsigned int programId, programId_text, programId1, programIdr;
-static unsigned int MatrixProjS, MatrixProj, MatrixProj_txt;
-static unsigned int MatModel, MatView, MatViewS;
+static unsigned int programId, programId_text, programId_Sfondo;
+static unsigned int  MatrixProj, MatrixProj_txt, MatrixProjS;
+static unsigned int MatModel, MatModelS, MatView, MatViewS;
 // Da guardare queste variabili a cosa servono
-static unsigned int loc_time, lsh, lscelta, loc_view_pos, lblinn;
-unsigned int VAO_Text, VBO_Text, cubemapTexture, idTex;
+static unsigned int loc_time, loc_res, loc_mouse;
+// Da capire pure queste
+static unsigned int lsh, lscelta, loc_view_pos, lblinn;
+
+unsigned int VAO_Text, VBO_Text;
 int selected_obj = -1;
 
-// Da controllare a cosa serve
+// Gestione camera
+string Operazione;
+string stringa_asse;
+int idfg, idfi;
+float cameraSpeed = 0.05;
 vec3 asse = vec3(0.0, 1.0, 0.0);
 
-mat4 Projection, Model, View, Projection_text;
+
+
+// Gestione update
+float angoloUp = 0;
+
+
+// Da controllare a cosa serve
+static float quan = 0;
+Mesh Cubo, Piano, Piramide, Centri, Sfera;
+float posxN, posyN;
+vec2 resolution, mousepos;
+
+mat4 Projection, Projection_text, Model, View;
+float deltaTime = 0.0f;	// Time between current frame and last frame
+float lastFrame = 0.0f; // Time of last frame
 
 static vector<Material> materials;
 static vector<Shader> shaders;
@@ -40,15 +63,71 @@ float angolo = 0.0; // Per luce
 //Puntatori alle variabili uniformi per l'impostazione dell'illuminazione
 LightShaderUniform light_unif = {};
 
-float deltaTime = 0.0f;	// Time between current frame and last frame
-float lastFrame = 0.0f; // Time of last frame
-
 void INIT_SHADER(void)
 {
+	GLenum ErrorCheckValue = glGetError();
+
+	char* vertexShader = (char*)"vertexShader_C.glsl";
+	char* fragmentShader = (char*)"fragmentShader_C.glsl";
+
+	programId = ShaderMaker::createProgram(vertexShader, fragmentShader);
+	glUseProgram(programId);
+
+	//Generazione del program shader per la gestione del testo
+	/*
+	vertexShader = (char*)"VertexShader_Text.glsl";
+	fragmentShader = (char*)"FragmentShader_Text.glsl";
+
+	programId_text = ShaderMaker::createProgram(vertexShader, fragmentShader);
+	*/
+
+	vertexShader = (char*)"vertexShader_C.glsl";
+	fragmentShader = (char*)"fragmentShader_Sfondo.glsl";
+
+	programId_Sfondo = ShaderMaker::createProgram(vertexShader, fragmentShader);
+
+}
+
+void crea_VAO_Vector(Mesh* mesh)
+{
+	glGenVertexArrays(1, &mesh->VAO);
+	glBindVertexArray(mesh->VAO);
+	//Genero , rendo attivo, riempio il VBO della geometria dei vertici
+	glGenBuffers(1, &mesh->VBO_G);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->VBO_G);
+	glBufferData(GL_ARRAY_BUFFER, mesh->vertici.size() * sizeof(vec3), mesh->vertici.data(), GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glEnableVertexAttribArray(0);
+
+	//Genero , rendo attivo, riempio il VBO dei colori
+	glGenBuffers(1, &mesh->VBO_C);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->VBO_C);
+	glBufferData(GL_ARRAY_BUFFER, mesh->colori.size() * sizeof(vec4), mesh->colori.data(), GL_STATIC_DRAW);
+	//Adesso carico il VBO dei colori nel layer 2
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glEnableVertexAttribArray(1);
+
+	//EBO di tipo indici
+	glGenBuffers(1, &mesh->EBO_indici);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->EBO_indici);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indici.size() * sizeof(GLuint), mesh->indici.data(), GL_STATIC_DRAW);
 }
 
 void INIT_VAO_Text(void)
 {
+	// configure VAO/VBO for texture quads
+	/* ---------------------------------- -
+	glGenVertexArrays(1, &VAO_Text);
+	glGenBuffers(1, &VBO_Text);
+	glBindVertexArray(VAO_Text);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO_Text);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+	*/
 }
 
 void INIT_VAO() {
@@ -58,7 +137,7 @@ void INIT_VAO() {
 	//COSTRUZIONE AMBIENTE: STRUTTURA Scena
 
 	//SFONDO
-	crea_piano_suddiviso(&Sfondo, vec4(0.2, 0.2, 0.9, 1.0));
+	crea_piano(&Sfondo, vec4(0.2, 0.2, 0.9, 1.0));
 	crea_VAO_Vector(&Sfondo);
 	Sfondo.nome = "Sfondo";
 	Sfondo.Model = mat4(1.0);
@@ -70,7 +149,7 @@ void INIT_VAO() {
 	Scena.push_back(Sfondo);
 
 	//TERRENO
-	crea_piano_suddiviso(&Piano, vec4(0.9, 0.9, 0.9, 1.0));
+	crea_piano(&Piano, vec4(0.9, 0.9, 0.9, 1.0));
 	crea_VAO_Vector(&Piano);
 	Piano.nome = "Piano Terra";
 	Piano.Model = mat4(1.0);
@@ -82,85 +161,19 @@ void INIT_VAO() {
 }
 
 void INIT_Illuminazione() {
-	// Da modificare
-	ext_light.position = { 0.0,10.0,0.0 };
-	ext_light.color = { 1.0,1.0,1.0 };
-	ext_light.power = 2.f;
-
-	// Setup dei materiali
-	materials.resize(8);
-	materials[MaterialType::RED_PLASTIC].name = "Red Plastic";
-	materials[MaterialType::RED_PLASTIC].ambient = red_plastic_ambient;
-	materials[MaterialType::RED_PLASTIC].diffuse = red_plastic_diffuse;
-	materials[MaterialType::RED_PLASTIC].specular = red_plastic_specular;
-	materials[MaterialType::RED_PLASTIC].shininess = red_plastic_shininess;
-
-	materials[MaterialType::EMERALD].name = "Emerald";
-	materials[MaterialType::EMERALD].ambient = emerald_ambient;
-	materials[MaterialType::EMERALD].diffuse = emerald_diffuse;
-	materials[MaterialType::EMERALD].specular = emerald_specular;
-	materials[MaterialType::EMERALD].shininess = emerald_shininess;
-
-	materials[MaterialType::BRASS].name = "Brass";
-	materials[MaterialType::BRASS].ambient = brass_ambient;
-	materials[MaterialType::BRASS].diffuse = brass_diffuse;
-	materials[MaterialType::BRASS].specular = brass_specular;
-	materials[MaterialType::BRASS].shininess = brass_shininess;
-
-	materials[MaterialType::SLATE].name = "Slate";
-	materials[MaterialType::SLATE].ambient = slate_ambient;
-	materials[MaterialType::SLATE].diffuse = slate_diffuse;
-	materials[MaterialType::SLATE].specular = slate_specular;
-	materials[MaterialType::SLATE].shininess = slate_shininess;
-
-	materials[MaterialType::YELLOW].name = "Yellow";
-	materials[MaterialType::YELLOW].ambient = yellow_ambient;
-	materials[MaterialType::YELLOW].diffuse = yellow_diffuse;
-	materials[MaterialType::YELLOW].specular = yellow_specular;
-	materials[MaterialType::YELLOW].shininess = yellow_shininess;
-
-	materials[MaterialType::ROSA].name = "ROSA";
-	materials[MaterialType::ROSA].ambient = rosa_ambient;
-	materials[MaterialType::ROSA].diffuse = rosa_diffuse;
-	materials[MaterialType::ROSA].specular = rosa_specular;
-	materials[MaterialType::ROSA].shininess = rosa_shininess;
-
-	materials[MaterialType::MARRONE].name = "MARRONE";
-	materials[MaterialType::MARRONE].ambient = marrone_ambient;
-	materials[MaterialType::MARRONE].diffuse = marrone_diffuse;
-	materials[MaterialType::MARRONE].specular = marrone_specular;
-	materials[MaterialType::MARRONE].shininess = marrone_shininess;
-	materials[MaterialType::NO_MATERIAL].name = "NO_MATERIAL";
-	materials[MaterialType::NO_MATERIAL].ambient = vec3(1, 1, 1);
-	materials[MaterialType::NO_MATERIAL].diffuse = vec3(0, 0, 0);
-	materials[MaterialType::NO_MATERIAL].specular = vec3(0, 0, 0);
-	materials[MaterialType::NO_MATERIAL].shininess = 1.f;
-
-	// Setup degli shader
-	shaders.resize(5);
-	shaders[ShaderOption::NONE].value = 0;
-	shaders[ShaderOption::NONE].name = "NONE";
-	shaders[ShaderOption::GOURAD_SHADING].value = 1;
-	shaders[ShaderOption::GOURAD_SHADING].name = "GOURAD SHADING";
-	shaders[ShaderOption::PHONG_SHADING].value = 2;
-	shaders[ShaderOption::PHONG_SHADING].name = "PHONG SHADING";
-	shaders[ShaderOption::ONDE_SHADING].value = 3;
-	shaders[ShaderOption::ONDE_SHADING].name = "ONDE SHADING";
-	shaders[ShaderOption::BANDIERA_SHADING].value = 4;
-	shaders[ShaderOption::BANDIERA_SHADING].name = "BANDIERA SHADING";
+	
 }
 
 void INIT_CAMERA_PROJECTION()
 {
-	// Da modificare posizioni
-	// Imposto la telecamera
+	//Imposto la telecamera
 	ViewSetup = {};
-	ViewSetup.position = vec4(0.0, 0.5, 25.0, 0.0);
-	ViewSetup.target = vec4(0.0, 0.0, 0.0, 0.0);
+	ViewSetup.position = glm::vec4(0.0, 0.5, 25.0, 0.0);
+	ViewSetup.target = glm::vec4(0.0, 0.0, 0.0, 0.0);
 	ViewSetup.direction = ViewSetup.target - ViewSetup.position;
-	ViewSetup.upVector = vec4(0.0, 1.0, 0.0, 0.0);
+	ViewSetup.upVector = glm::vec4(0.0, 1.0, 0.0, 0.0);
 
-	// Imposto la proiezione prospettica
+	//Imposto la proiezione prospettica
 	PerspectiveSetup = {};
 	PerspectiveSetup.aspect = (GLfloat)width / (GLfloat)height;
 	PerspectiveSetup.fovY = 45.0f;
@@ -173,8 +186,8 @@ void resize(int w, int h)
 	glViewport(0, 0, w, h);
 	PerspectiveSetup.aspect = (GLfloat)w / (GLfloat)h;
 	Projection = perspective(radians(PerspectiveSetup.fovY), PerspectiveSetup.aspect, PerspectiveSetup.near_plane, PerspectiveSetup.far_plane);
-	w_up = w;
-	h_up = h;
+	widthRes = w;
+	heightRes = h;
 }
 
 // Windows info
@@ -183,72 +196,117 @@ void resizeSecWind(int w, int h)
 	glViewport(0, 0, w, h);
 	Projection_text = ortho(0.0f, (float)w, 0.0f, (float)h);
 
-	w_up = w;
-	h_up = h;
+	widthRes = w;
+	heightRes = h;
 }
 
 // Da sistemare
 void drawScene(void)
 {
+	resolution.x = (float)width;
+	resolution.y = (float)height;
 
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	Projection = perspective(radians(PerspectiveSetup.fovY), PerspectiveSetup.aspect, PerspectiveSetup.near_plane, PerspectiveSetup.far_plane);
+	//Costruisco la matrice di Vista che applicata ai vertici in coordinate del mondo li trasforma nel sistema di riferimento della camera.
+	View = lookAt(vec3(ViewSetup.position), vec3(ViewSetup.target), vec3(ViewSetup.upVector));
+	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
+
+	//Disegno Sfondo: uso il program shder per lo sfondo
+	glUseProgram(programId_Sfondo);
+	//Trasferisco le variabili uniformi allo shader sfondo: tempo, risoluzione e posizione del mouse, Matrice di Proiezione e Matrice di Vista, Matrice di Modellazione
+	glUniform1f(loc_time, time);
+	glUniform2f(loc_res, resolution.x, resolution.y);
+	glUniform2f(loc_mouse, mousepos.x, mousepos.y);
+
+	glUniformMatrix4fv(MatrixProjS, 1, GL_FALSE, value_ptr(Projection));
+	glUniformMatrix4fv(MatViewS, 1, GL_FALSE, value_ptr(View));
+
+	glUniformMatrix4fv(MatModelS, 1, GL_FALSE, value_ptr(Scena[0].Model));
+	glBindVertexArray(Scena[0].VAO);
+	glDrawElements(GL_TRIANGLES, (Scena[0].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+	//Da adesso in avanti userò il program shader per gli altri oggetti
+	glUseProgram(programId);
+	glUniformMatrix4fv(MatrixProj, 1, GL_FALSE, value_ptr(Projection));
+	glUniformMatrix4fv(MatView, 1, GL_FALSE, value_ptr(View));
+
+	//Disegno piano terra
+	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[1].Model));
+	glBindVertexArray(Scena[1].VAO);
+	glDrawElements(GL_TRIANGLES, (Scena[1].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
+
+
+	glutSwapBuffers();
 }
 
 // Windows info
 void drawSceneSecWind(void)
 {
+	/*
+	glClearColor(0.0, 1.0, 0.0, 0.0);
 
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	Projection_text = ortho(0.0f, (float)widthRes, 0.0f, (float)heightRes);
+
+	RenderText(programId_text, Projection_text, Operazione, VAO_Text, VBO_Text, 10.0f, 100.0f, 0.5f, glm::vec3(1.0, 0.0f, 0.2f));
+
+	RenderText(programId_text, Projection_text, stringa_asse, VAO_Text, VBO_Text, 10.0f, 70.0f, 0.5f, glm::vec3(1.0, 0.0f, 0.2f));
+
+	RenderText(programId_text, Projection_text, "Oggetto selezionato", VAO_Text, VBO_Text, 10.0f, 50.0f, 0.5f, glm::vec3(1.0, 0.0f, 0.2f));
+	if (selected_obj > -1)
+		RenderText(programId_text, Projection_text, Scena[selected_obj].nome.c_str(), VAO_Text, VBO_Text, 10.0f, 10.0f, 0.5f, glm::vec3(1.0, 0.0f, 0.2f));
+
+	glutSwapBuffers();
+	*/
 }
 
 int main(int argc, char* argv[])
 {
-	// Initial setting
 	glutInit(&argc, argv);
+
 	glutInitContextVersion(4, 0);
 	glutInitContextProfile(GLUT_CORE_PROFILE);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
 
-	// Display setting scene 3d
-	glutInitWindowSize(WIDTH, HEIGHT);
+	//Inizializzo finestra per il rendering della scena 3d con tutti i suoi eventi le sue inizializzazioni e le sue impostazioni
+
+	glutInitWindowSize(width, height);
 	glutInitWindowPosition(100, 100);
-	// se da errori attribuire ad una variabile int
-	glutCreateWindow("SquareCity");
+	idfg = glutCreateWindow("SquareCity");
 	glutDisplayFunc(drawScene);
 	glutReshapeFunc(resize);
-	cout << "Benvenuto su SquareCity! ";
-
-	// Inserimento periferiche esterne usate
-	// Gestione tastiera 
-	glutKeyboardFunc(keyboardPressedEvent);
-	// Gestione mouse
 	glutMouseFunc(mouse);
-	glutMotionFunc(mouseActiveMotion); // Evento tasto premuto
+	glutTimerFunc(10, update, 0);
+	glutPassiveMotionFunc(my_passive_mouse);
 
-	glutTimerFunc(66, update, 0);
+	glutKeyboardFunc(keyboardPressedEvent);
+	glutTimerFunc(10, update, 0);
 
 	glewExperimental = GL_TRUE;
 	glewInit();
 	INIT_SHADER();
 	INIT_VAO();
-	INIT_Illuminazione();
-	// Menu
-	//buildOpenGLMenu();
 	INIT_CAMERA_PROJECTION();
-	// non so cosa fa
-	glCullFace(GL_BACK);
-
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glEnable(GL_ALPHA_TEST);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	// Display setting info
-	// eventualmente da modificare i campi
-	glutInitWindowSize(WIDTH_SEC, HEIGHT_SEC);
+	//Inizializzo finestra per il rendering delle informazioni con tutti i suoi eventi le sue inizializzazioni e le sue impostazioni
+	/*
+	glutInitWindowSize(width_i, height_i);
 	glutInitWindowPosition(500, 350);
-	// se da errori attribuire ad una variabile int
-	glutCreateWindow("Informazioni");
-	glutDisplayFunc(drawSceneSecWind);
-	glutReshapeFunc(resizeSecWind);
+	idfi = glutCreateWindow("Informazioni");
+	glutDisplayFunc(drawScene1);
+	glutReshapeFunc(resize1);
 
 	INIT_SHADER();
 	INIT_VAO_Text();
@@ -257,8 +315,8 @@ int main(int argc, char* argv[])
 	glEnable(GL_BLEND);
 	glEnable(GL_ALPHA_TEST);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	*/
 
-	// Per normale
 	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 Projection (in vertex shader).
 	//QUesto identificativo sarà poi utilizzato per il trasferimento della matrice Projection al Vertex Shader
 	MatrixProj = glGetUniformLocation(programId, "Projection");
@@ -268,38 +326,22 @@ int main(int argc, char* argv[])
 	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 View (in vertex shader)
 	//QUesto identificativo sarà poi utilizzato per il trasferimento della matrice View al Vertex Shader
 	MatView = glGetUniformLocation(programId, "View");
-	loc_time = glGetUniformLocation(programId, "time");
-	loc_view_pos = glGetUniformLocation(programId, "ViewPos");
 
-	lscelta = glGetUniformLocation(programId, "sceltaVs");
 
-	// Da sistemare questione luci
-	light_unif.light_position_pointer = glGetUniformLocation(programId, "light.position");
-	light_unif.light_color_pointer = glGetUniformLocation(programId, "light.color");
-	light_unif.light_power_pointer = glGetUniformLocation(programId, "light.power");
-	light_unif.material_ambient = glGetUniformLocation(programId, "material.ambient");
-	light_unif.material_diffuse = glGetUniformLocation(programId, "material.diffuse");
-	light_unif.material_specular = glGetUniformLocation(programId, "material.specular");
-	light_unif.material_shininess = glGetUniformLocation(programId, "material.shininess");
-	idTex = glGetUniformLocation(programId, "tex0");
-
-	// Per cubemap
-	MatrixProjS = glGetUniformLocation(programId1, "Projection");
+	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 Projection (in vertex shader).
+	//QUesto identificativo sarà poi utilizzato per il trasferimento della matrice Projection al Vertex Shader
+	MatrixProjS = glGetUniformLocation(programId_Sfondo, "Projection");
 	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 Model (in vertex shader)
 	//QUesto identificativo sarà poi utilizzato per il trasferimento della matrice Model al Vertex Shader
+	MatModelS = glGetUniformLocation(programId_Sfondo, "Model");
+	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 View (in vertex shader)
+	//QUesto identificativo sarà poi utilizzato per il trasferimento della matrice View al Vertex Shader
+	MatViewS = glGetUniformLocation(programId_Sfondo, "View");
 
-	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 Model (in vertex shader)
-	//QUesto identificativo sarà poi utilizzato per il trasferimento della matrice Model al Vertex Shader
-	MatViewS = glGetUniformLocation(programId1, "View");
+	loc_time = glGetUniformLocation(programId_Sfondo, "timeS");
 
-	// Per riflessiva
-	/*
-	MatModelR = glGetUniformLocation(programIdr, "Model");
-	MatViewR = glGetUniformLocation(programIdr, "View");
-	MatrixProjR = glGetUniformLocation(programIdr, "Projection");
-	loc_view_posR = glGetUniformLocation(programIdr, "ViewPos");
-	loc_cubemapR = glGetUniformLocation(programIdr, "cubemap");
-	*/
+	loc_res = glGetUniformLocation(programId_Sfondo, "resolution");
 
+	loc_mouse = glGetUniformLocation(programId_Sfondo, "mouse");
 	glutMainLoop();
 }

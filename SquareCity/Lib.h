@@ -15,12 +15,6 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-// Probabilmente da rimuovere
-#define WIDTH 1280
-#define HEIGHT 720
-#define WIDTH_SEC 400
-#define HEIGHT_SEC 400
-
 using namespace glm;
 using namespace std;
 
