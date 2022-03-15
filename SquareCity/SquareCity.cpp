@@ -53,6 +53,32 @@ void INIT_VAO_Text(void)
 
 void INIT_VAO() {
 
+	Mesh Sfondo;
+
+	//COSTRUZIONE AMBIENTE: STRUTTURA Scena
+
+	//SFONDO
+	crea_piano_suddiviso(&Sfondo, vec4(0.2, 0.2, 0.9, 1.0));
+	crea_VAO_Vector(&Sfondo);
+	Sfondo.nome = "Sfondo";
+	Sfondo.Model = mat4(1.0);
+	Sfondo.Model = translate(Sfondo.Model, vec3(0.0, 0.0, -100.0));
+	centri.push_back(vec3(0.0, 0.0, 0.0));
+	Sfondo.Model = scale(Sfondo.Model, vec3(1000.0f, 1000.00f, 1.0f));
+	Sfondo.Model = rotate(Sfondo.Model, radians(90.0f), vec3(1.0, 0.0, 0.0));
+	raggi.push_back(1.5);
+	Scena.push_back(Sfondo);
+
+	//TERRENO
+	crea_piano_suddiviso(&Piano, vec4(0.9, 0.9, 0.9, 1.0));
+	crea_VAO_Vector(&Piano);
+	Piano.nome = "Piano Terra";
+	Piano.Model = mat4(1.0);
+	Piano.Model = translate(Piano.Model, vec3(0.0, -1.5, 0.0));
+	centri.push_back(vec3(0.0, 0.0, 0.0));
+	Piano.Model = scale(Piano.Model, vec3(1000.0f, 1.0f, 1000.0f));
+	raggi.push_back(1.5);
+	Scena.push_back(Piano);
 }
 
 void INIT_Illuminazione() {
