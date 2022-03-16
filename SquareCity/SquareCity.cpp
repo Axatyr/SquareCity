@@ -4,7 +4,7 @@
 //#include "GestioneTesto.h"
 #include "GestioneEventi.h"
 
-//#include "objloader.hpp"
+#include "objloader.hpp"
 //#include "VAO.h"
 //#include "Materiale.h"
 //#include "Loader.h"
@@ -45,7 +45,7 @@ float angoloUp = 0;
 
 // Da controllare a cosa serve
 static float quan = 0;
-Mesh Cubo, Piano, Piramide, Centri, Sfera;
+Mesh Cubo, Piano, Piramide, Centri, Sfera, Panchina;
 float posxN, posyN;
 vec2 resolution, mousepos;
 
@@ -133,6 +133,8 @@ void INIT_VAO_Text(void)
 void INIT_VAO() {
 
 	Mesh Sfondo;
+	string ObjDir = "object/";
+	bool obj;
 
 	//COSTRUZIONE AMBIENTE: STRUTTURA Scena
 
@@ -149,7 +151,7 @@ void INIT_VAO() {
 	Scena.push_back(Sfondo);
 
 	//TERRENO
-	crea_piano(&Piano, vec4(0.9, 0.9, 0.9, 1.0));
+	crea_piano(&Piano, vec4(50.0/255.0, 205.0/255.0, 50.0/255.0, 1.0));
 	crea_VAO_Vector(&Piano);
 	Piano.nome = "Piano Terra";
 	Piano.Model = mat4(1.0);
@@ -158,6 +160,31 @@ void INIT_VAO() {
 	Piano.Model = scale(Piano.Model, vec3(1000.0f, 1.0f, 1000.0f));
 	raggi.push_back(1.5);
 	Scena.push_back(Piano);
+
+	//SOLE
+	crea_sfera(&Sfera, vec4(1.0, 216.0 / 255.0, 0.0, 1.0));
+	crea_VAO_Vector(&Sfera);
+	Sfera.Model = mat4(1.0);
+	Sfera.Model = translate(Sfera.Model, vec3(0.0, 7.0, 0.0));
+	Sfera.Model = scale(Sfera.Model, vec3(2.5, 2.5, 2.5));
+	Sfera.nome = "sole";
+	centri.push_back(vec3(0.0, 2.0, 0.0));
+	raggi.push_back(0.5);
+	Scena.push_back(Sfera);
+
+	//Panchina
+	obj = loadOBJ(ObjDir + "panchina.obj", Panchina);
+	crea_VAO_Vector(&Panchina);
+	Panchina.nome = "panchina";
+	Panchina.Model = mat4(1.0);
+	Panchina.Model = translate(Panchina.Model, vec3(0.0, 2.0, 0.0));
+	Panchina.Model = rotate(Panchina.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
+	centri.push_back(vec3(Panchina.Model * vec4(0.0, 0.0, 0.0, 1.0)));
+	raggi.push_back(1.0);
+	Panchina.sceltaVS = 1;
+	Panchina.material = MaterialType::SLATE;
+	Panchina.Model = mat4(1.0);
+	Scena.push_back(Panchina);
 }
 
 void INIT_Illuminazione() {
@@ -241,7 +268,24 @@ void drawScene(void)
 	glDrawElements(GL_TRIANGLES, (Scena[1].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
+	//Disegno Sole
+	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[2].Model));
+	glBindVertexArray(Scena[2].VAO);
+	glDrawElements(GL_TRIANGLES, (Scena[2].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
 
+	//Disegno panchina
+	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[3].Model));
+	/*
+	glUniform1i(lscelta, Scena[3].sceltaVS);
+	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[3].material].ambient));
+	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[3].material].diffuse));
+	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[3].material].specular));
+	glUniform1f(light_unif.material_shininess, materials[Scena[3].material].shininess);
+	*/
+	glBindVertexArray(Scena[3].VAO);
+	glDrawElements(GL_TRIANGLES, (Scena[3].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
 
 	glutSwapBuffers();
 }

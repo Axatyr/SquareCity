@@ -23,6 +23,7 @@
     <None Include="vertexShader_C.glsl" />
     <None Include="vertexShader_CubeMap.glsl" />
     <None Include="vertexShader_riflessione.glsl" />
+    <None Include="fragmentShader_Sfondo.glsl" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Lib.h">
