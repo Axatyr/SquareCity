@@ -64,6 +64,7 @@ void crea_piano(Mesh* mesh, vec4 color)
 	mesh->texCoords.push_back(vec2(2.0, 2.0));
 	mesh->texCoords.push_back(vec2(0.0, 2.0));
 }
+
 void crea_toro(Mesh* mesh, vec4 colore)
 {
 	int Stacks = 30;  //numero di suddivisioni sull'asse x

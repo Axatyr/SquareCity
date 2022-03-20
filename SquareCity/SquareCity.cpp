@@ -27,25 +27,47 @@ static unsigned int loc_time, loc_res, loc_mouse;
 // Da capire pure queste
 static unsigned int lsh, lscelta, loc_view_pos, lblinn;
 
-unsigned int VAO_Text, VBO_Text;
+// Da cancellare mi sa unsigned int VAO_Text, VBO_Text;
 int selected_obj = -1;
 
 // Gestione camera
+int vistaCamera = 1; // Rappresenta la vista fissa, il fuoco resta al centro del soggetto e non è possibile muoverla
+// Viene settata di default e successivamente può essere modificata trasformandola in mobile, in quel caso punta sempre dritto però può essere ruotata con il mouse 
 string Operazione;
 string stringa_asse;
-int idfg, idfi;
-float cameraSpeed = 0.05;
+int idPrincipale, idfi;
+float cameraSpeed = 1.0;
 vec3 asse = vec3(0.0, 1.0, 0.0);
 
+bool firstMouse = true;
+float lastX = (float)width / 2;
+float lastY = (float)height / 2;
+float yaw_ = -90.0f;
+float pitch_ = 0.0f;
 
+enum {
+	NAVIGATION,
+	CAMERA_MOVING,
+	TRASLATING,
+	ROTATING,
+	SCALING
+} OperationMode;
+
+enum {
+	X,
+	Y,
+	Z
+} WorkingAxis;
 
 // Gestione update
 float angoloUp = 0;
 
+// Oggetti nella scena
+static vector<Mesh> Personaggio;
+Mesh Cubo, Piano, Piramide, Centri, Sfera, Panchina;
 
 // Da controllare a cosa serve
 static float quan = 0;
-Mesh Cubo, Piano, Piramide, Centri, Sfera, Panchina;
 float posxN, posyN;
 vec2 resolution, mousepos;
 
@@ -173,6 +195,7 @@ void INIT_VAO() {
 	Scena.push_back(Sfera);
 
 	//Panchina
+	/*
 	obj = loadOBJ(ObjDir + "panchina.obj", Panchina);
 	crea_VAO_Vector(&Panchina);
 	Panchina.nome = "panchina";
@@ -185,6 +208,58 @@ void INIT_VAO() {
 	Panchina.material = MaterialType::SLATE;
 	Panchina.Model = mat4(1.0);
 	Scena.push_back(Panchina);
+	*/
+
+	//COSTRZIONE DEL PERSONAGGIO
+	Mesh Testa, Corpo, BraccioSx, BraccioDx, GambaSx, GambaDx;
+
+	//TESTA
+	crea_sfera(&Testa, vec4(0.0, 1.0, 1.0, 1.0));
+	crea_VAO_Vector(&Testa);
+	Testa.Model = mat4(1.0);
+	Testa.Model = translate(Testa.Model, vec3(0.0, 1.75, 0.0));
+	Testa.Model = scale(Testa.Model, vec3(0.75, 0.75, 0.75));
+	Testa.nome = "Testa";
+	centri.push_back(vec3(0.0, 1.75, 0.0));
+	raggi.push_back(0.5);
+	Personaggio.push_back(Testa);
+
+	//CORPO
+	crea_sfera(&Corpo, vec4(1.0, 1.0, 1.0, 1.0));
+	crea_VAO_Vector(&Corpo);
+	Corpo.Model = mat4(1.0);
+	Corpo.Model = translate(Corpo.Model, vec3(0.0, -0.2, 0.0));
+	Corpo.Model = scale(Corpo.Model, vec3(1.2, 1.4, 1.0));
+	raggi.push_back(0.5);
+	Corpo.nome = "Corpo";
+	centri.push_back(vec3(0.0, 0.0, 0.0));
+	Personaggio.push_back(Corpo);
+	raggi.push_back(0.5);
+	
+	//BRACCIO SINISTRO
+	crea_sfera(&BraccioSx, vec4(1.0, 1.0, 1.0, 1.0));
+	crea_VAO_Vector(&BraccioSx);
+	BraccioSx.Model = mat4(1.0);
+	BraccioSx.Model = translate(BraccioSx.Model, vec3(-1.0, 0.0, 0.0));
+	BraccioSx.Model = rotate(BraccioSx.Model, radians(65.0f), vec3(0.0, 0.0, 1.0));
+	BraccioSx.Model = scale(BraccioSx.Model, vec3(1, 0.25, 0.25));
+	BraccioSx.nome = "BraccioSinistro";
+	centri.push_back(vec3(-1.0, 0.0, 0.0));
+	raggi.push_back(0.5);
+	Personaggio.push_back(BraccioSx);
+
+	//BRACCIO DESTRO
+	crea_sfera(&BraccioDx, vec4(1.0, 1.0, 1.0, 1.0));
+	crea_VAO_Vector(&BraccioDx);
+	BraccioDx.Model = mat4(1.0);
+	BraccioDx.Model = translate(BraccioDx.Model, vec3(1.0, 0.0, 0.0));
+	BraccioDx.Model = rotate(BraccioDx.Model, radians(-65.0f), vec3(0.0, 0.0, 1.0));
+	BraccioDx.Model = scale(BraccioDx.Model, vec3(1, 0.25, 0.25));
+	BraccioDx.nome = "BraccioDestro";
+	centri.push_back(vec3(1.0, 0.0, 0.0));
+	raggi.push_back(0.5);
+	Personaggio.push_back(BraccioDx);
+
 }
 
 void INIT_Illuminazione() {
@@ -208,6 +283,45 @@ void INIT_CAMERA_PROJECTION()
 	PerspectiveSetup.near_plane = 0.1f;
 }
 
+void moveCameraLeft() {
+	glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));   //direzione perpendicolare al piano individuato da direction e upvector
+	ViewSetup.position -= glm::vec4(direzione_scorrimento, .0) * cameraSpeed;
+	ViewSetup.target = ViewSetup.position + ViewSetup.direction * cameraSpeed;;
+}
+
+void moveCameraRight() {
+	glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));
+	ViewSetup.position += glm::vec4(direzione_scorrimento, .0) * cameraSpeed;
+	ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+}
+
+void moveCameraForward() {
+
+	ViewSetup.position += ViewSetup.direction * cameraSpeed;
+	ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+}
+
+void moveCameraBack() {
+	ViewSetup.position -= ViewSetup.direction * cameraSpeed;
+	ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+}
+
+void modifyModelMatrix(glm::vec3 translation_vector, glm::vec3 rotation_vector, GLfloat angle, GLfloat scale_factor)
+{
+	//ricordare che mat4(1) costruisce una matrice identità di ordine 4
+	mat4 traslation = glm::translate(glm::mat4(1), translation_vector);
+	mat4 scale = glm::scale(glm::mat4(1), glm::vec3(scale_factor, scale_factor, scale_factor));
+	mat4 rotation = glm::rotate(glm::mat4(1), angle, rotation_vector);
+
+	//Modifica la matrice di Modellazione dell'oggetto della scena selezionato postmolitplicando per le matrici scale*rotation*traslation
+	if (selected_obj > -1)
+	{
+		Scena[selected_obj].Model = Scena[selected_obj].Model * scale * rotation * traslation;
+		centri[selected_obj] = centri[selected_obj] + translation_vector;
+		raggi[selected_obj] = raggi[selected_obj] * scale_factor;
+	}
+}
+
 void resize(int w, int h)
 {
 	glViewport(0, 0, w, h);
@@ -218,6 +332,7 @@ void resize(int w, int h)
 }
 
 // Windows info
+/*
 void resizeSecWind(int w, int h)
 {
 	glViewport(0, 0, w, h);
@@ -226,6 +341,7 @@ void resizeSecWind(int w, int h)
 	widthRes = w;
 	heightRes = h;
 }
+*/
 
 // Da sistemare
 void drawScene(void)
@@ -275,6 +391,7 @@ void drawScene(void)
 	glBindVertexArray(0);
 
 	//Disegno panchina
+	/*
 	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[3].Model));
 	/*
 	glUniform1i(lscelta, Scena[3].sceltaVS);
@@ -282,15 +399,41 @@ void drawScene(void)
 	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[3].material].diffuse));
 	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[3].material].specular));
 	glUniform1f(light_unif.material_shininess, materials[Scena[3].material].shininess);
-	*/
+	
 	glBindVertexArray(Scena[3].VAO);
 	glDrawElements(GL_TRIANGLES, (Scena[3].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
+	*/
+
+	//Disegno Personaggio
+	for (int k = 0; k < Personaggio.size(); k++)
+	{
+		mat4 Model = mat4(1.0);
+
+		if (k == Personaggio.size() - 2)
+		{
+			Model = translate(Model, vec3(-1.0, 0.5, 0.0));
+			Model = rotate(Model, radians(angolo), vec3(0.0, 0.0, 1.0));
+			Model = scale(Model, vec3(1, 0.25, 0.25));
+			Model = translate(mat4(1.0), vec3(posxN, 0.0, posyN)) * Model;
+		}
+		else
+			Model = translate(Model, vec3(posxN, 0.0, posyN)) * Personaggio[k].Model;
+
+
+		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Model));
+
+		glBindVertexArray(Personaggio[k].VAO);
+		glDrawElements(GL_TRIANGLES, (Personaggio[k].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+
+	}
 
 	glutSwapBuffers();
 }
 
 // Windows info
+/*
 void drawSceneSecWind(void)
 {
 	/*
@@ -309,7 +452,303 @@ void drawSceneSecWind(void)
 		RenderText(programId_text, Projection_text, Scena[selected_obj].nome.c_str(), VAO_Text, VBO_Text, 10.0f, 10.0f, 0.5f, glm::vec3(1.0, 0.0f, 0.2f));
 
 	glutSwapBuffers();
+	
+}
+*/
+
+void keyboardPressedEvent(unsigned char key, int x, int y) {
+	/*
+	if (vistaCamera == 1) {
+		// Visuale fissa, si muove solo a destra, sinistra, verso l'alto e verso il basso, l'uso del mouse è disabilitato ed il fuoco è sull'omino
+		// Si offre la possibilità di zoomare
+		// Da vedere perche se si cambia e si inserisce solo il cambio con la panchina allora può esre rimosso yutto ciò e bisogna sdolo preoccuarsi di bloccare i comandi e settare la camera già nel punto della panchina
+		switch (key)
+		{
+			case 'v':
+				cout << "cambio visuale" << endl;
+				cambiaScena();
+				break;
+
+			default:
+				break;
+		}
+	}
+	else {
+		// Visuale mobile, può essere girata con il mouse, il fuoco punta sempre avanti all'omino
+	}
 	*/
+	switch (key)
+	{
+	case 'a':
+		cout << "movimento telecamera sx" << endl;
+		moveCameraLeft();
+		break;
+	case 'd':
+		cout << "movimento telecamera dx" << endl;
+		moveCameraRight();
+		break;
+	case 'w':
+		cout << "movimento telecamera su" << endl;
+		moveCameraForward();
+		break;
+	case 's':
+		cout << "movimento telecamera giu" << endl;
+		moveCameraBack();
+		break;
+	
+	case 'g':  //Si entra in modalità di operazione traslazione
+		OperationMode = TRASLATING;
+		Operazione = "TRASLAZIONE";
+		break;
+	case 'r': //Si entra in modalità di operazione rotazione
+		OperationMode = ROTATING;
+		Operazione = "ROTAZIONE";
+		break;
+	case 'S':
+		OperationMode = SCALING; //Si entra in modalità di operazione scalatura
+		Operazione = "SCALATURA";
+		break;
+	case 27:
+		glutLeaveMainLoop();
+		break;
+		// Selezione dell'asse
+	case 'x':
+		WorkingAxis = X;  //Seleziona l'asse X come asse lungo cui effettuare l'operazione selezionata (tra traslazione, rotazione, scalatura)
+		stringa_asse = " Asse X";
+		break;
+	case 'y':
+		WorkingAxis = Y;  //Seleziona l'asse X come asse lungo cui effettuare l'operazione selezionata (tra traslazione, rotazione, scalatura)
+		stringa_asse = " Asse Y";
+		break;
+	case 'z':
+		WorkingAxis = Z;
+		stringa_asse = " Asse Z";  //Seleziona l'asse X come asse lungo cui effettuare l'operazione selezionata (tra traslazione, rotazione, scalatura)
+		break;
+
+	default:
+		break;
+	}
+
+	// Selezione dell'asse per le trasformazioni
+	switch (WorkingAxis) {
+	case X:	asse = glm::vec3(1.0, 0.0, 0.0);
+
+		break;
+	case Y: asse = glm::vec3(0.0, 1.0, 0.0);
+
+		break;
+	case Z: asse = glm::vec3(0.0, 0.0, 1.0);
+
+		break;
+	default:
+		break;
+	}
+
+	/*
+	glutSetWindow(idfi);
+	glutPostRedisplay();
+	*/
+
+	// I tasti + e -  aggiornano lo spostamento a destra o a sinistra, la rotazione in segno antiorario o in senso orario, la scalatura come amplificazione o diminuizione delle dimensioni
+
+	float amount = .1;
+	if (key == '+')
+		amount *= 1;
+
+	if (key == '-')
+		amount *= -1;
+
+
+	switch (OperationMode) {
+
+		//la funzione modifyModelMatrix(glm::vec3 translation_vector, glm::vec3 rotation_vector, GLfloat angle, GLfloat scale_factor) 
+		// definisce la matrice di modellazione che si vuole postmoltiplicare alla matrice di modellazione dell'oggetto selezionato, per poterlo traslare, ruotare scalare.
+
+	case TRASLATING:
+		// si passa angle 0 e scale factor =1, 
+		modifyModelMatrix(asse * amount, asse, 0.0f, 1.0f);
+		break;
+	case ROTATING:
+		// SI mette a zero il vettore di traslazione (vec3(0) e ad 1 il fattore di scale
+		modifyModelMatrix(glm::vec3(0), asse, amount * 2.0f, 1.0f);
+		break;
+	case SCALING:
+		// SI mette a zero il vettore di traslazione (vec3(0), angolo di rotazione a 0 e ad 1 il fattore di scala 1+amount.
+		modifyModelMatrix(glm::vec3(0), asse, 0.0f, 1.0f + amount);
+		break;
+
+	}
+
+	/*
+	glutSetWindow(idfi);
+	glutPostRedisplay();
+	*/
+
+	glutSetWindow(idPrincipale);
+	glutPostRedisplay();
+
+}
+
+void cambiaScena() 
+{
+	/* In teoria sarà necessaio cambiare automaticamente la scena passando da fissa a mobile*/
+}
+
+// Gestione selezione oggetti schermata secondaria
+vec3 get_ray_from_mouse(float mouse_x, float mouse_y) {
+
+
+	// mappiamo le coordinate di viewport del mouse [0,width], [height,0] in coordinate normalizzate [-1,1]  
+	float x = (2.0f * mouse_x) / width - 1.0;
+	float y = 1.0f - (2.0f * mouse_y) / height;
+	float z = 1.0f;
+	vec3  ray_nds = vec3(x, y, z);
+	// clip space
+	vec4 ray_clip = vec4(x, y, -1.0, 1.0);
+
+	// eye space
+
+	vec4 ray_eye = inverse(Projection) * ray_clip;
+
+
+	ray_eye = vec4(ray_eye.x, ray_eye.y, -1.0, 0.0);
+
+	// world space
+	vec3 ray_wor = vec3(inverse(View) * ray_eye);
+
+	ray_wor = normalize(ray_wor);
+
+	return ray_wor;
+}
+
+/*controlla se un raggio interseca una sfera. In caso negativo, restituisce false. Rigetta
+le intersezioni dietro l'origine del raggio, e pone  intersection_distance all'intersezione p iù vicina.
+*/
+
+bool ray_sphere(vec3 ray_origin_wor, vec3 ray_direction_wor, vec3 sphere_centre_wor, float sphere_radius, float* intersection_distance) {
+
+	//Calcoliamo O-C
+	vec3 dist_sfera = ray_origin_wor - sphere_centre_wor;
+	float b = dot(dist_sfera, ray_direction_wor);
+	float f = dot(dist_sfera, dist_sfera) - sphere_radius * sphere_radius;
+
+	float delta = b * b - f;
+
+	if (delta < 0)
+		return false;
+
+	if (delta > 0.0f) {
+		//calcola le due intersezioni
+		float t_a = -b + sqrt(delta);
+		float t_b = -b - sqrt(delta);
+		*intersection_distance = t_b;
+
+		if (t_a < 0.0) {
+			if (t_b < 0)
+				return false;
+		}
+
+		return true;
+	}
+
+	if (delta == 0) {
+		float t = -b + sqrt(delta);
+		if (t < 0)
+			return false;
+		*intersection_distance = t;
+		return true;
+	}
+
+	return false;
+}
+
+void mouse(int button, int state, int x, int y) {
+	float xmouse = x;
+	float ymouse = y;
+	vec3 ray_wor = get_ray_from_mouse(xmouse, ymouse);
+
+	selected_obj = -1;
+	float closest_intersection = 0.0f;
+	for (int i = 0; i < Scena.size(); i++)
+	{
+		float t_dist = 0.0f;
+
+		if (ray_sphere(ViewSetup.position, ray_wor, centri[i], raggi[i], &t_dist))
+		{
+			if (selected_obj == -1 || t_dist < closest_intersection)
+			{
+				selected_obj = i;
+				closest_intersection = t_dist;
+			}
+		}
+	}
+
+	printf("Oggetto selezionato %d \n", selected_obj);
+	/*
+	glutSetWindow(idfi);
+	glutPostRedisplay();
+	*/
+	glutSetWindow(idPrincipale);
+	glutPostRedisplay();
+
+}
+
+void my_passive_mouse(int xpos, int ypos)
+{
+
+	float alfa = 0.05; //serve ridimensionare l'offset tra due posizioni successive del mosue
+	ypos = height - ypos;
+	if (firstMouse)
+	{
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
+	}
+
+	float xoffset = xpos - lastX;
+	float yoffset = ypos - lastY;
+	lastX = xpos;
+	lastY = ypos;
+
+	xoffset *= alfa;
+	yoffset *= alfa;
+	yaw_ += xoffset;  //aggiorno l'angolo yaw
+	pitch_ += yoffset;  // aggiorno l'angolo Pitch
+
+	// Facciamo si' che l'angolo di Picht vari tra -90 e 90.
+	if (pitch_ > 89.0f)
+		pitch_ = 89.0f;
+	if (pitch_ < -89.0f)
+		pitch_ = -89.0f;
+
+	glm::vec3 front;
+	front.x = cos(glm::radians(yaw_)) * cos(glm::radians(pitch_));
+	front.y = sin(glm::radians(pitch_));
+	front.z = sin(glm::radians(yaw_)) * cos(glm::radians(pitch_));
+	ViewSetup.direction = vec4(normalize(front), 0.0);
+	ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+	glutSetWindow(idPrincipale);
+	glutPostRedisplay();
+}
+
+void update(int a)
+{
+	angoloUp += 0.05;
+
+
+	if (angoloUp >= 0 && angoloUp < 25.0)
+		angoloUp += 0.05;
+	if (angoloUp > 25)
+		angoloUp = 0;
+
+	glutTimerFunc(10, update, 0);
+	/*
+	glutSetWindow(idfi);
+	glutPostRedisplay();
+	*/
+	glutSetWindow(idPrincipale);
+	glutPostRedisplay();
+
 }
 
 int main(int argc, char* argv[])
@@ -324,7 +763,7 @@ int main(int argc, char* argv[])
 
 	glutInitWindowSize(width, height);
 	glutInitWindowPosition(100, 100);
-	idfg = glutCreateWindow("SquareCity");
+	idPrincipale = glutCreateWindow("SquareCity");
 	glutDisplayFunc(drawScene);
 	glutReshapeFunc(resize);
 	glutMouseFunc(mouse);
