@@ -6,8 +6,11 @@
 
 #include "objloader.hpp"
 //#include "VAO.h"
-//#include "Materiale.h"
+#include "Materiale.h"
+//#include "Texture.h"
 //#include "Loader.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 
 // Dimensioni finestre
@@ -19,7 +22,7 @@ int widthRes = width;
 int heightRes = height;
 
 // Variabili per vertex shader
-static unsigned int programId, programId_text, programId_Sfondo;
+static unsigned int programId, programId_text, programId_Sfondo, programIdr;
 static unsigned int  MatrixProj, MatrixProj_txt, MatrixProjS;
 static unsigned int MatModel, MatModelS, MatView, MatViewS;
 // Da guardare queste variabili a cosa servono
@@ -29,6 +32,9 @@ static unsigned int lsh, lscelta, loc_view_pos, lblinn;
 
 // Da cancellare mi sa unsigned int VAO_Text, VBO_Text;
 int selected_obj = -1;
+
+//texture
+unsigned int legno;
 
 // Gestione camera
 int vistaCamera = 1; // Rappresenta la vista fissa, il fuoco resta al centro del soggetto e non è possibile muoverla
@@ -64,7 +70,7 @@ float angoloUp = 0;
 
 // Oggetti nella scena
 static vector<Mesh> Personaggio;
-Mesh Cubo, Piano, Piramide, Centri, Sfera, Panchina;
+Mesh Cubo, Piano, Piramide, Centri, Sfera, Panchina, Albero, Edificio;
 
 // Da controllare a cosa serve
 static float quan = 0;
@@ -79,11 +85,49 @@ static vector<Material> materials;
 static vector<Shader> shaders;
 
 // Luce
-point_light ext_light;
+//point_light ext_light;
+point_light light;
 float angolo = 0.0; // Per luce
 
 //Puntatori alle variabili uniformi per l'impostazione dell'illuminazione
 LightShaderUniform light_unif = {};
+
+unsigned int loadTexture(char const* path)
+{
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+
+	int width, height, nrComponents;
+	unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+	if (data)
+	{
+		GLenum format;
+		if (nrComponents == 1)
+			format = GL_RED;
+		else if (nrComponents == 3)
+			format = GL_RGB;
+		else if (nrComponents == 4)
+			format = GL_RGBA;
+
+		glBindTexture(GL_TEXTURE_2D, textureID);
+		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		stbi_image_free(data);
+	}
+	else
+	{
+		std::cout << "Texture failed to load at path: " << path << std::endl;
+		stbi_image_free(data);
+	}
+
+	return textureID;
+}
 
 void INIT_SHADER(void)
 {
@@ -108,6 +152,11 @@ void INIT_SHADER(void)
 
 	programId_Sfondo = ShaderMaker::createProgram(vertexShader, fragmentShader);
 
+	vertexShader = (char*)"vertexShader_riflessione.glsl";
+	fragmentShader = (char*)"fragmentShader_riflessione.glsl";
+
+	programIdr = ShaderMaker::createProgram(vertexShader, fragmentShader);
+
 }
 
 void crea_VAO_Vector(Mesh* mesh)
@@ -129,6 +178,20 @@ void crea_VAO_Vector(Mesh* mesh)
 	//Adesso carico il VBO dei colori nel layer 2
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
 	glEnableVertexAttribArray(1);
+
+	glGenBuffers(1, &mesh->VBO_normali);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->VBO_normali);
+	glBufferData(GL_ARRAY_BUFFER, mesh->normali.size() * sizeof(vec3), mesh->normali.data(), GL_STATIC_DRAW);
+	//Adesso carico il VBO delle NORMALI nel layer 2
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glEnableVertexAttribArray(2);
+
+	glGenBuffers(1, &mesh->VBO_coord_texture);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->VBO_coord_texture);
+	glBufferData(GL_ARRAY_BUFFER, mesh->texCoords.size() * sizeof(vec2), mesh->texCoords.data(), GL_STATIC_DRAW);
+	//Adesso carico il VBO delle NORMALI nel layer 2
+	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glEnableVertexAttribArray(3);
 
 	//EBO di tipo indici
 	glGenBuffers(1, &mesh->EBO_indici);
@@ -154,6 +217,8 @@ void INIT_VAO_Text(void)
 
 void INIT_VAO() {
 
+	legno = loadTexture("legno.jpg");
+
 	Mesh Sfondo;
 	string ObjDir = "object/";
 	bool obj;
@@ -170,6 +235,8 @@ void INIT_VAO() {
 	Sfondo.Model = scale(Sfondo.Model, vec3(1000.0f, 1000.00f, 1.0f));
 	Sfondo.Model = rotate(Sfondo.Model, radians(90.0f), vec3(1.0, 0.0, 0.0));
 	raggi.push_back(1.5);
+	Sfondo.sceltaVS = 1;
+	Sfondo.material = MaterialType::EMERALD;
 	Scena.push_back(Sfondo);
 
 	//TERRENO
@@ -181,6 +248,8 @@ void INIT_VAO() {
 	centri.push_back(vec3(0.0, 0.0, 0.0));
 	Piano.Model = scale(Piano.Model, vec3(1000.0f, 1.0f, 1000.0f));
 	raggi.push_back(1.5);
+	Piano.sceltaVS = 0;
+	Piano.material = MaterialType::EMERALD;
 	Scena.push_back(Piano);
 
 	//SOLE
@@ -192,23 +261,42 @@ void INIT_VAO() {
 	Sfera.nome = "sole";
 	centri.push_back(vec3(0.0, 2.0, 0.0));
 	raggi.push_back(0.5);
+	Sfera.sceltaVS = 0;
+	Sfera.material = MaterialType::YELLOW;
 	Scena.push_back(Sfera);
 
-	//Panchina
-	/*
+	//PANCHINA	
 	obj = loadOBJ(ObjDir + "panchina.obj", Panchina);
 	crea_VAO_Vector(&Panchina);
 	Panchina.nome = "panchina";
 	Panchina.Model = mat4(1.0);
-	Panchina.Model = translate(Panchina.Model, vec3(0.0, 2.0, 0.0));
 	Panchina.Model = rotate(Panchina.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
 	centri.push_back(vec3(Panchina.Model * vec4(0.0, 0.0, 0.0, 1.0)));
 	raggi.push_back(1.0);
-	Panchina.sceltaVS = 1;
+	Panchina.sceltaVS = 0;
 	Panchina.material = MaterialType::SLATE;
-	Panchina.Model = mat4(1.0);
 	Scena.push_back(Panchina);
-	*/
+	Panchina.Model = translate(Panchina.Model, vec3(-6.0, 0.0, 2.0));
+	Panchina.Model = rotate(Panchina.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
+	centri.push_back(vec3(Panchina.Model * vec4(0.0, 0.0, 0.0, 1.0)));
+	raggi.push_back(1.0);
+	Panchina.sceltaVS = 0;
+	Panchina.material = MaterialType::SLATE;
+	Scena.push_back(Panchina);
+
+	//ALBERO
+	obj = loadOBJ(ObjDir + "Tree.obj", Albero);
+	crea_VAO_Vector(&Albero);
+	Albero.nome = "albero";
+	Albero.Model = mat4(1.0);
+	Albero.Model = translate(Albero.Model, vec3(-5.0, 0.0, 2.0));
+	Albero.Model = rotate(Albero.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
+	centri.push_back(vec3(Albero.Model * vec4(0.0, 0.0, 0.0, 1.0)));
+	raggi.push_back(1.0);
+	Albero.sceltaVS = 0;
+	Albero.material = MaterialType::EMERALD;
+	Scena.push_back(Albero);
+	
 
 	//COSTRZIONE DEL PERSONAGGIO
 	Mesh Testa, Corpo, BraccioSx, BraccioDx, GambaSx, GambaDx;
@@ -263,7 +351,72 @@ void INIT_VAO() {
 }
 
 void INIT_Illuminazione() {
-	
+	light.position = {0.0,10.0,0.0};
+	light.color = { 1.0,1.0,1.0 };
+	light.power = 2.f;
+
+	//Setup dei materiali
+	// Materials setup
+	materials.resize(8);
+	materials[MaterialType::RED_PLASTIC].name = "Red Plastic";
+	materials[MaterialType::RED_PLASTIC].ambient = red_plastic_ambient;
+	materials[MaterialType::RED_PLASTIC].diffuse = red_plastic_diffuse;
+	materials[MaterialType::RED_PLASTIC].specular = red_plastic_specular;
+	materials[MaterialType::RED_PLASTIC].shininess = red_plastic_shininess;
+
+	materials[MaterialType::EMERALD].name = "Emerald";
+	materials[MaterialType::EMERALD].ambient = emerald_ambient;
+	materials[MaterialType::EMERALD].diffuse = emerald_diffuse;
+	materials[MaterialType::EMERALD].specular = emerald_specular;
+	materials[MaterialType::EMERALD].shininess = emerald_shininess;
+
+	materials[MaterialType::BRASS].name = "Brass";
+	materials[MaterialType::BRASS].ambient = brass_ambient;
+	materials[MaterialType::BRASS].diffuse = brass_diffuse;
+	materials[MaterialType::BRASS].specular = brass_specular;
+	materials[MaterialType::BRASS].shininess = brass_shininess;
+
+	materials[MaterialType::SLATE].name = "Slate";
+	materials[MaterialType::SLATE].ambient = slate_ambient;
+	materials[MaterialType::SLATE].diffuse = slate_diffuse;
+	materials[MaterialType::SLATE].specular = slate_specular;
+	materials[MaterialType::SLATE].shininess = slate_shininess;
+
+	materials[MaterialType::YELLOW].name = "Yellow";
+	materials[MaterialType::YELLOW].ambient = yellow_ambient;
+	materials[MaterialType::YELLOW].diffuse = yellow_diffuse;
+	materials[MaterialType::YELLOW].specular = yellow_specular;
+	materials[MaterialType::YELLOW].shininess = yellow_shininess;
+
+	materials[MaterialType::ROSA].name = "ROSA";
+	materials[MaterialType::ROSA].ambient = rosa_ambient;
+	materials[MaterialType::ROSA].diffuse = rosa_diffuse;
+	materials[MaterialType::ROSA].specular = rosa_specular;
+	materials[MaterialType::ROSA].shininess = rosa_shininess;
+
+	materials[MaterialType::MARRONE].name = "MARRONE";
+	materials[MaterialType::MARRONE].ambient = marrone_ambient;
+	materials[MaterialType::MARRONE].diffuse = marrone_diffuse;
+	materials[MaterialType::MARRONE].specular = marrone_specular;
+	materials[MaterialType::MARRONE].shininess = marrone_shininess;
+	materials[MaterialType::NO_MATERIAL].name = "NO_MATERIAL";
+	materials[MaterialType::NO_MATERIAL].ambient = glm::vec3(1, 1, 1);
+	materials[MaterialType::NO_MATERIAL].diffuse = glm::vec3(0, 0, 0);
+	materials[MaterialType::NO_MATERIAL].specular = glm::vec3(0, 0, 0);
+	materials[MaterialType::NO_MATERIAL].shininess = 1.f;
+
+	//Setup degli shader
+	shaders.resize(5);
+	shaders[ShaderOption::NONE].value = 0;
+	shaders[ShaderOption::NONE].name = "NONE";
+	shaders[ShaderOption::GOURAD_SHADING].value = 1;
+	shaders[ShaderOption::GOURAD_SHADING].name = "GOURAD SHADING";
+	shaders[ShaderOption::PHONG_SHADING].value = 2;
+	shaders[ShaderOption::PHONG_SHADING].name = "PHONG SHADING";
+	shaders[ShaderOption::ONDE_SHADING].value = 3;
+	shaders[ShaderOption::ONDE_SHADING].name = "ONDE SHADING";
+	shaders[ShaderOption::BANDIERA_SHADING].value = 4;
+	shaders[ShaderOption::BANDIERA_SHADING].name = "BANDIERA SHADING";
 }
 
 void INIT_CAMERA_PROJECTION()
@@ -358,6 +511,11 @@ void drawScene(void)
 	View = lookAt(vec3(ViewSetup.position), vec3(ViewSetup.target), vec3(ViewSetup.upVector));
 	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 
+	//Definizione colore luce, posizione ed intensita'
+	glUniform3f(light_unif.light_position_pointer, light.position.x + 50 * cos(radians(angolo)), light.position.y, light.position.z + 50 * sin(radians(angolo)));
+	glUniform3f(light_unif.light_color_pointer, light.color.r, light.color.g, light.color.b);
+	glUniform1f(light_unif.light_power_pointer, light.power);
+
 	//Disegno Sfondo: uso il program shder per lo sfondo
 	glUseProgram(programId_Sfondo);
 	//Trasferisco le variabili uniformi allo shader sfondo: tempo, risoluzione e posizione del mouse, Matrice di Proiezione e Matrice di Vista, Matrice di Modellazione
@@ -380,30 +538,62 @@ void drawScene(void)
 
 	//Disegno piano terra
 	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[1].Model));
+	glUniform1i(lscelta, Scena[1].sceltaVS);
+	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[1].material].ambient));
+	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[1].material].diffuse));
+	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[1].material].specular));
+	glUniform1f(light_unif.material_shininess, materials[Scena[1].material].shininess);
 	glBindVertexArray(Scena[1].VAO);
 	glDrawElements(GL_TRIANGLES, (Scena[1].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
 	//Disegno Sole
 	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[2].Model));
+	glUniform1i(lscelta, Scena[2].sceltaVS);
+	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[2].material].ambient));
+	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[2].material].diffuse));
+	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[2].material].specular));
+	glUniform1f(light_unif.material_shininess, materials[Scena[2].material].shininess);
 	glBindVertexArray(Scena[2].VAO);
 	glDrawElements(GL_TRIANGLES, (Scena[2].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
-	//Disegno panchina
-	/*
-	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[3].Model));
-	/*
+	//Disegno oggetti
+	for (int k = 4; k < Scena.size(); k++) {
+		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[k].Model));
+		glUniform1i(lscelta, Scena[k].sceltaVS);
+		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[k].material].ambient));
+		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[k].material].diffuse));
+		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[k].material].specular));
+		glUniform1f(light_unif.material_shininess, materials[Scena[k].material].shininess);
+		glBindVertexArray(Scena[k].VAO);
+		glBindTexture(GL_TEXTURE_2D, legno);
+		glDrawArrays(GL_TRIANGLES, 0, Scena[k].vertici.size());
+		glBindVertexArray(0);
+	}
+	
+	/*glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[3].Model));
 	glUniform1i(lscelta, Scena[3].sceltaVS);
 	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[3].material].ambient));
 	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[3].material].diffuse));
 	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[3].material].specular));
 	glUniform1f(light_unif.material_shininess, materials[Scena[3].material].shininess);
-	
 	glBindVertexArray(Scena[3].VAO);
+	//glBindTexture(GL_TEXTURE_2D, texture);
 	glDrawElements(GL_TRIANGLES, (Scena[3].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
-	*/
+
+	//Disegno albero
+	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[4].Model));
+	glUniform1i(lscelta, Scena[4].sceltaVS);
+	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[4].material].ambient));
+	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[4].material].diffuse));
+	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[4].material].specular));
+	glUniform1f(light_unif.material_shininess, materials[Scena[4].material].shininess);
+	glBindVertexArray(Scena[4].VAO);
+	//glBindTexture(GL_TEXTURE_2D, texture);
+	glDrawElements(GL_TRIANGLES, (Scena[4].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);*/
 
 	//Disegno Personaggio
 	for (int k = 0; k < Personaggio.size(); k++)
@@ -422,7 +612,6 @@ void drawScene(void)
 
 
 		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Model));
-
 		glBindVertexArray(Personaggio[k].VAO);
 		glDrawElements(GL_TRIANGLES, (Personaggio[k].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -777,6 +966,7 @@ int main(int argc, char* argv[])
 	glewInit();
 	INIT_SHADER();
 	INIT_VAO();
+	INIT_Illuminazione();
 	INIT_CAMERA_PROJECTION();
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -809,6 +999,8 @@ int main(int argc, char* argv[])
 	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 View (in vertex shader)
 	//QUesto identificativo sarà poi utilizzato per il trasferimento della matrice View al Vertex Shader
 	MatView = glGetUniformLocation(programId, "View");
+	loc_time = glGetUniformLocation(programId, "time");
+	loc_view_pos = glGetUniformLocation(programId, "ViewPos");
 
 
 	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 Projection (in vertex shader).
@@ -822,6 +1014,17 @@ int main(int argc, char* argv[])
 	MatViewS = glGetUniformLocation(programId_Sfondo, "View");
 
 	loc_time = glGetUniformLocation(programId_Sfondo, "timeS");
+
+	lscelta = glGetUniformLocation(programId, "sceltaVs");
+
+	light_unif.light_position_pointer = glGetUniformLocation(programId, "light.position");
+	light_unif.light_color_pointer = glGetUniformLocation(programId, "light.color");
+	light_unif.light_power_pointer = glGetUniformLocation(programId, "light.power");
+	light_unif.material_ambient = glGetUniformLocation(programId, "material.ambient");
+	light_unif.material_diffuse = glGetUniformLocation(programId, "material.diffuse");
+	light_unif.material_specular = glGetUniformLocation(programId, "material.specular");
+	light_unif.material_shininess = glGetUniformLocation(programId, "material.shininess");
+
 
 	loc_res = glGetUniformLocation(programId_Sfondo, "resolution");
 
