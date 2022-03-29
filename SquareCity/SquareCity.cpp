@@ -70,7 +70,8 @@ float angoloUp = 0;
 
 // Oggetti nella scena
 static vector<Mesh> Personaggio;
-Mesh Cubo, Piano, Piramide, Centri, Sfera, Panchina, Albero, Edificio;
+Mesh Cubo, Piano, Piramide, Centri, Sfera, Panchina, Albero, Edificio, Fontana3D;
+Figura Fontana;
 
 // Da controllare a cosa serve
 static float quan = 0;
@@ -276,8 +277,9 @@ void INIT_VAO() {
 	Panchina.sceltaVS = 0;
 	Panchina.material = MaterialType::SLATE;
 	Scena.push_back(Panchina);
-	Panchina.Model = translate(Panchina.Model, vec3(-6.0, 0.0, 2.0));
+	Panchina.Model = translate(Panchina.Model, vec3(-6.0, 0.0, -5.0));
 	Panchina.Model = rotate(Panchina.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
+	Panchina.Model = scale(Panchina.Model, vec3(0.5, 0.5, 0.5));
 	centri.push_back(vec3(Panchina.Model * vec4(0.0, 0.0, 0.0, 1.0)));
 	raggi.push_back(1.0);
 	Panchina.sceltaVS = 0;
@@ -291,12 +293,34 @@ void INIT_VAO() {
 	Albero.Model = mat4(1.0);
 	Albero.Model = translate(Albero.Model, vec3(-5.0, 0.0, 2.0));
 	Albero.Model = rotate(Albero.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
+	Albero.Model = scale(Albero.Model, vec3(2.0, 2.0, 2.0));
 	centri.push_back(vec3(Albero.Model * vec4(0.0, 0.0, 0.0, 1.0)));
 	raggi.push_back(1.0);
 	Albero.sceltaVS = 0;
 	Albero.material = MaterialType::EMERALD;
 	Scena.push_back(Albero);
+
+	//EDIFICIO
+	/*obj = loadOBJ(ObjDir + "Building.obj", Edificio);
+	crea_VAO_Vector(&Edificio);
+	Edificio.nome = "edificio";
+	Edificio.Model = mat4(1.0);
+	Edificio.Model = rotate(Edificio.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
+	centri.push_back(vec3(Edificio.Model * vec4(0.0, 0.0, 0.0, 1.0)));
+	raggi.push_back(1.0);
+	Edificio.sceltaVS = 0;
+	Edificio.material = MaterialType::SLATE;
+	Scena.push_back(Edificio);
+	Edificio.Model = translate(Edificio.Model, vec3(-6.0, 0.0, 2.0));
+	Edificio.Model = rotate(Edificio.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
+	centri.push_back(vec3(Edificio.Model * vec4(0.0, 0.0, 0.0, 1.0)));
+	raggi.push_back(1.0);
+	Edificio.sceltaVS = 0;
+	Edificio.material = MaterialType::SLATE;
+	Scena.push_back(Edificio);*/
 	
+	//FONTANA
+	costruisci_fontana(vec4(0.0, 0.0, 1.0, 1.0) , vec4(0.0, 1.0, 0.0, 1.0), &Fontana);
 
 	//COSTRZIONE DEL PERSONAGGIO
 	Mesh Testa, Corpo, BraccioSx, BraccioDx, GambaSx, GambaDx;
@@ -351,7 +375,7 @@ void INIT_VAO() {
 }
 
 void INIT_Illuminazione() {
-	light.position = {0.0,10.0,0.0};
+	light.position = {0.0,7.0,0.0};
 	light.color = { 1.0,1.0,1.0 };
 	light.power = 2.f;
 
@@ -571,29 +595,18 @@ void drawScene(void)
 		glDrawArrays(GL_TRIANGLES, 0, Scena[k].vertici.size());
 		glBindVertexArray(0);
 	}
-	
-	/*glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[3].Model));
-	glUniform1i(lscelta, Scena[3].sceltaVS);
-	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[3].material].ambient));
-	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[3].material].diffuse));
-	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[3].material].specular));
-	glUniform1f(light_unif.material_shininess, materials[Scena[3].material].shininess);
-	glBindVertexArray(Scena[3].VAO);
-	//glBindTexture(GL_TEXTURE_2D, texture);
-	glDrawElements(GL_TRIANGLES, (Scena[3].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+	//Disegno fontana
+	rivoluzione(Fontana, &Fontana3D);
+	crea_VAO_Vector(&Fontana3D);
+	Fontana3D.Model = mat4(1.0);
+	Fontana3D.Model = translate(Fontana3D.Model, vec3(0.0, 2.0, 1.0));
+	Fontana3D.Model = scale(Fontana3D.Model, vec3(2.0, 2.0, 2.0));
+	glUniformMatrix4fv(MatView, 1, GL_FALSE, value_ptr(View));
+	glPointSize(2.0);
+	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Fontana3D.Model));
+	glBindVertexArray(Fontana3D.VAO);
+	glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
-
-	//Disegno albero
-	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[4].Model));
-	glUniform1i(lscelta, Scena[4].sceltaVS);
-	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[4].material].ambient));
-	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[4].material].diffuse));
-	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[4].material].specular));
-	glUniform1f(light_unif.material_shininess, materials[Scena[4].material].shininess);
-	glBindVertexArray(Scena[4].VAO);
-	//glBindTexture(GL_TEXTURE_2D, texture);
-	glDrawElements(GL_TRIANGLES, (Scena[4].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);*/
 
 	//Disegno Personaggio
 	for (int k = 0; k < Personaggio.size(); k++)
@@ -960,7 +973,7 @@ int main(int argc, char* argv[])
 	glutPassiveMotionFunc(my_passive_mouse);
 
 	glutKeyboardFunc(keyboardPressedEvent);
-	glutTimerFunc(10, update, 0);
+	glutTimerFunc(66, update, 0);
 
 	glewExperimental = GL_TRUE;
 	glewInit();

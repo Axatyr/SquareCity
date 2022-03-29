@@ -1,4 +1,8 @@
 #include "Geometria.h"
+
+#define  PI   3.14159265358979323846
+int pval = 50;
+
 void crea_cubo(Mesh* mesh, vec4 coloret, vec4 coloreb)
 {
 	mesh->vertici.push_back(vec3(-1.0, -1.0, 1.0));
@@ -64,7 +68,6 @@ void crea_piano(Mesh* mesh, vec4 color)
 	mesh->texCoords.push_back(vec2(2.0, 2.0));
 	mesh->texCoords.push_back(vec2(0.0, 2.0));
 }
-
 void crea_toro(Mesh* mesh, vec4 colore)
 {
 	int Stacks = 30;  //numero di suddivisioni sull'asse x
@@ -154,23 +157,28 @@ void crea_sfera(Mesh* mesh, vec4 colore)
 	int nv = mesh->vertici.size();
 	mesh->indici.push_back(nv - 1);
 }
-void costruisci_formaHermite(vec4 color_top, vec4 color_bot, Figura* forma)
+void costruisci_fontana(vec4 color_top, vec4 color_bot, Figura* fontana)
 {
-	/*Poligonale.CP = Curva.CP;
-	Poligonale.colCP = Curva.colCP;
+	float* t;
+	fontana->CP.push_back(vec3(0.0, 0.7, 0.0));
+	fontana->CP.push_back(vec3(-0.3, 0.7, 0.0));
+	fontana->CP.push_back(vec3(-0.3, 0.3, 0.0));
+	fontana->CP.push_back(vec3(-0.5, 0.0, 0.0));
+	fontana->CP.push_back(vec3(-2.0, 0.0, 0.0));
+	fontana->CP.push_back(vec3(-0.5, -1.0, 0.0));
+	fontana->CP.push_back(vec3(-1.5, -2.0, 0.0));
+	t = new float[fontana->CP.size()];
+	int i;
+	float step = 1.0 / (float)(fontana->CP.size() - 1);
+	for (i = 0; i < fontana->CP.size(); i++) {
+		t[i] = i * step;
+	}
+	InterpolazioneHermite(t, fontana, color_top, color_bot);
+	fontana->nv = fontana->vertici.size();
+	fontana->Model = mat4(1.0);
+	fontana->Model = translate(fontana->Model, vec3(0.0, 0.0, 0.0));
+	fontana->Model = scale(fontana->Model, vec3(1.0, 1.0, 1.0));
 
-	if (Poligonale.CP.size() > 1)
-	{
-		t = new float[Curva.CP.size()];
-		int i;
-		float step = 1.0 / (float)(Curva.CP.size() - 1);
-
-		for (i = 0; i < Curva.CP.size(); i++)
-			t[i] = (float)i * step;
-
-		InterpolazioneHermite(t, &Curva, color_top, color_bot);
-		forma->nv = Curva.vertici.size();
-	}*/
 }
 void costruisci_formaBezier(vec4 color_top, vec4 color_bot, Figura* forma)
 {
@@ -202,37 +210,37 @@ void costruisci_formaBezier(vec4 color_top, vec4 color_bot, Figura* forma)
 		forma->nv = forma->vertici.size();
 	}*/
 }
-void rivoluzione(Figura Curva, Mesh* Superficie)
+void rivoluzione(Figura figura, Mesh* superficie)
 {
-	/*int i, j, nvCerchio = 50;
+	int i, j, nvCerchio = 50;
 	float stepA = (2 * PI) / nvCerchio;
 	float t, x, y, z;
-	for (i = 0; i < Curva.vertici.size(); i++)
+	for (i = 0; i < figura.vertici.size(); i++)
 	{
 		//Ogni vertice della curva profilo genera una circonferenza con centro sull'asse y e raggio uguale alla sua  coordinata x
 		for (j = 0; j < nvCerchio; j++)
 		{
 			t = (float)j * stepA;
-			y = Curva.vertici[i].y;
-			x = Curva.vertici[i].x * cos(t);
-			z = Curva.vertici[i].x * sin(t);
-			Superficie->vertici.push_back(vec3(x, y, z));
+			y = figura.vertici[i].y;
+			x = figura.vertici[i].x * cos(t);
+			z = figura.vertici[i].x * sin(t);
+			superficie->vertici.push_back(vec3(x, y, z));
 			if (i % 2 == 0)
-				Superficie->colori.push_back(vec4(1.0, 0.0, 0.0, 1.0));
+				superficie->colori.push_back(vec4(1.0, 0.0, 0.0, 1.0));
 			else
-				Superficie->colori.push_back(vec4(1.0, 1.0, 0.0, 1.0));
+				superficie->colori.push_back(vec4(1.0, 1.0, 0.0, 1.0));
 		}
 	}
-	int n = Curva.vertici.size() - 1;
+	int n = figura.vertici.size() - 1;
 
 	//Costruisce la triangolazione specificando gli indici che devono essere collegati a tre a tre per individuare i triangoli
 	for (int i = 0; i < n * (nvCerchio - 1) - 2; ++i)
 	{
-		Superficie->indici.push_back(i);
-		Superficie->indici.push_back(i + pval + 1);
-		Superficie->indici.push_back(i + pval);
-		Superficie->indici.push_back(i + pval + 1);
-		Superficie->indici.push_back(i);
-		Superficie->indici.push_back(i + 1);
-	}*/
+		superficie->indici.push_back(i);
+		superficie->indici.push_back(i + pval + 1);
+		superficie->indici.push_back(i + pval);
+		superficie->indici.push_back(i + pval + 1);
+		superficie->indici.push_back(i);
+		superficie->indici.push_back(i + 1);
+	}
 }

@@ -1,5 +1,6 @@
 #ifndef GESTIONEEVENTI_H
 #define GESTIONEEVENTI_H
+
 /*
 #include "Camera.h"
 

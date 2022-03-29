@@ -12,8 +12,6 @@
 
 float dx(int i, float* t, float Tens, float Bias, float Cont, Figura* Fig);
 float dy(int i, float* t, float Tens, float Bias, float Cont, Figura* Fig);
-float DX(int i, float* t);
-float DY(int i, float* t);
 void InterpolazioneHermite(float* t, Figura* Fig, vec4 color_top, vec4 color_bot);
 
 #endif
