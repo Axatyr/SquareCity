@@ -12,6 +12,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
+#define PI 3.14159265358979323846
 
 // Dimensioni finestre
 int width = 1280;
@@ -70,7 +71,8 @@ float angoloUp = 0;
 
 // Oggetti nella scena
 static vector<Mesh> Personaggio;
-Mesh Cubo, Piano, Piramide, Centri, Sfera, Panchina, Albero, Edificio, Fontana3D;
+static vector<Mesh> Lampione;
+Mesh Cubo, Piano, Piramide, Centri, Sole, Panchina, Albero, Edificio, Fontana3D, Palo, Lampada;
 Figura Fontana;
 
 // Da controllare a cosa serve
@@ -92,7 +94,7 @@ float angolo = 0.0; // Per luce
 
 //Puntatori alle variabili uniformi per l'impostazione dell'illuminazione
 LightShaderUniform light_unif = {};
-
+/*
 unsigned int loadTexture(char const* path)
 {
 	unsigned int textureID;
@@ -129,7 +131,7 @@ unsigned int loadTexture(char const* path)
 
 	return textureID;
 }
-
+*/
 void INIT_SHADER(void)
 {
 	GLenum ErrorCheckValue = glGetError();
@@ -218,7 +220,7 @@ void INIT_VAO_Text(void)
 
 void INIT_VAO() {
 
-	legno = loadTexture("legno.jpg");
+	//legno = loadTexture("legno.jpg");
 
 	Mesh Sfondo;
 	string ObjDir = "object/";
@@ -254,17 +256,17 @@ void INIT_VAO() {
 	Scena.push_back(Piano);
 
 	//SOLE
-	crea_sfera(&Sfera, vec4(1.0, 216.0 / 255.0, 0.0, 1.0));
-	crea_VAO_Vector(&Sfera);
-	Sfera.Model = mat4(1.0);
-	Sfera.Model = translate(Sfera.Model, vec3(0.0, 7.0, 0.0));
-	Sfera.Model = scale(Sfera.Model, vec3(2.5, 2.5, 2.5));
-	Sfera.nome = "sole";
+	crea_sfera(&Sole, vec4(1.0, 216.0 / 255.0, 0.0, 1.0));
+	crea_VAO_Vector(&Sole);
+	Sole.Model = mat4(1.0);
+	Sole.Model = translate(Sole.Model, vec3(0.0, 7.0, 0.0));
+	Sole.Model = scale(Sole.Model, vec3(2.5, 2.5, 2.5));
+	Sole.nome = "sole";
 	centri.push_back(vec3(0.0, 2.0, 0.0));
 	raggi.push_back(0.5);
-	Sfera.sceltaVS = 0;
-	Sfera.material = MaterialType::YELLOW;
-	Scena.push_back(Sfera);
+	Sole.sceltaVS = 0;
+	Sole.material = MaterialType::RED_PLASTIC;
+	Scena.push_back(Sole);
 
 	//PANCHINA	
 	obj = loadOBJ(ObjDir + "panchina.obj", Panchina);
@@ -300,6 +302,32 @@ void INIT_VAO() {
 	Albero.material = MaterialType::EMERALD;
 	Scena.push_back(Albero);
 
+	//LAMPIONE
+	//Palo
+	crea_cilindro(&Palo, vec4(0.5, 0.5, 0.5, 1.0));
+	crea_VAO_Vector(&Palo);
+	Palo.Model = mat4(1.0);
+	Palo.Model = translate(Palo.Model, vec3(-4.0, -1.0, 7.0));
+	Palo.Model = scale(Palo.Model, vec3(0.1, 6.0, 0.1));
+	Palo.nome = "palo";
+	centri.push_back(vec3(0.0, 2.0, 0.0));
+	raggi.push_back(0.5);
+	Palo.sceltaVS = 0;
+	Palo.material = MaterialType::RED_PLASTIC;
+	Lampione.push_back(Palo);
+	//Lampada
+	crea_sfera(&Lampada, vec4(1.0, 1.0, 1.0, 1.0));
+	crea_VAO_Vector(&Lampada);
+	Lampada.Model = mat4(1.0);
+	Lampada.Model = translate(Lampada.Model, vec3(-4.0, 5.0, 7.0));
+	Lampada.Model = scale(Lampada.Model, vec3(0.5, 0.5, 0.5));
+	Lampada.nome = "lampada";
+	centri.push_back(vec3(0.0, 2.0, 0.0));
+	raggi.push_back(0.5);
+	Lampada.sceltaVS = 0;
+	Lampada.material = MaterialType::RED_PLASTIC;
+	Lampione.push_back(Lampada);
+
 	//EDIFICIO
 	/*obj = loadOBJ(ObjDir + "Building.obj", Edificio);
 	crea_VAO_Vector(&Edificio);
@@ -320,7 +348,7 @@ void INIT_VAO() {
 	Scena.push_back(Edificio);*/
 	
 	//FONTANA
-	costruisci_fontana(vec4(0.0, 0.0, 1.0, 1.0) , vec4(0.0, 1.0, 0.0, 1.0), &Fontana);
+	costruisci_fontana(vec4(0.0, 0.0, 1.0, 1.0) , vec4(0.5, 0.5, 0.5, 1.0), &Fontana);
 
 	//COSTRZIONE DEL PERSONAGGIO
 	Mesh Testa, Corpo, BraccioSx, BraccioDx, GambaSx, GambaDx;
@@ -377,7 +405,7 @@ void INIT_VAO() {
 void INIT_Illuminazione() {
 	light.position = {0.0,7.0,0.0};
 	light.color = { 1.0,1.0,1.0 };
-	light.power = 2.f;
+	light.power = 1.f;
 
 	//Setup dei materiali
 	// Materials setup
@@ -591,7 +619,7 @@ void drawScene(void)
 		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[k].material].specular));
 		glUniform1f(light_unif.material_shininess, materials[Scena[k].material].shininess);
 		glBindVertexArray(Scena[k].VAO);
-		glBindTexture(GL_TEXTURE_2D, legno);
+		//glBindTexture(GL_TEXTURE_2D, legno);
 		glDrawArrays(GL_TRIANGLES, 0, Scena[k].vertici.size());
 		glBindVertexArray(0);
 	}
@@ -629,6 +657,19 @@ void drawScene(void)
 		glDrawElements(GL_TRIANGLES, (Personaggio[k].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 
+	}
+
+	//Disegno Lampione
+	for (int i = 0; i < Lampione.size(); i++) {
+		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Lampione[i].Model));
+		glUniform1i(lscelta, Lampione[i].sceltaVS);
+		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Lampione[i].material].ambient));
+		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Lampione[i].material].diffuse));
+		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Lampione[i].material].specular));
+		glUniform1f(light_unif.material_shininess, materials[Lampione[i].material].shininess);
+		glBindVertexArray(Lampione[i].VAO);
+		glDrawElements(GL_TRIANGLES, (Lampione[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
 	}
 
 	glutSwapBuffers();
@@ -935,6 +976,7 @@ void my_passive_mouse(int xpos, int ypos)
 
 void update(int a)
 {
+	/*
 	angoloUp += 0.05;
 
 
@@ -944,13 +986,13 @@ void update(int a)
 		angoloUp = 0;
 
 	glutTimerFunc(10, update, 0);
-	/*
+
 	glutSetWindow(idfi);
 	glutPostRedisplay();
-	*/
+	
 	glutSetWindow(idPrincipale);
 	glutPostRedisplay();
-
+	*/
 }
 
 int main(int argc, char* argv[])
