@@ -1,3 +1,5 @@
+
+
 #include "Geometria.h"
 
 #define  PI   3.14159265358979323846
@@ -157,6 +159,54 @@ void crea_sfera(Mesh* mesh, vec4 colore)
 	int nv = mesh->vertici.size();
 	mesh->indici.push_back(nv - 1);
 }
+void crea_cilindro(Mesh* mesh, vec4 colore)
+{
+	int Stacks = 30;  //numero di suddivisioni sull'asse x
+	int Slices = 30;  // numero di suddivisioni sull'asse y
+
+	float s, t;
+	//Calc The Vertices
+	for (int i = 0; i <= Stacks; ++i) {
+
+		float V = i / (float)Stacks;
+		float h = V;
+
+		// Loop Through Slices
+		for (int j = 0; j <= Slices; ++j) {
+
+			float U = j / (float)Slices;
+			float theta = U * (glm::pi <float>() * 2);
+
+			// Calc The Vertex Positions
+			float x = cosf(theta);
+			float y = h;
+			float z = sinf(theta);
+
+
+			// Push Back Vertex Data
+			mesh->vertici.push_back(vec3(x, y, z));
+			mesh->colori.push_back(colore);
+			mesh->normali.push_back(vec3(normalize(vec3(cos(theta), 0, sin(theta)))));
+		}
+	}
+	// Calc The Index Positions
+	for (int i = 0; i < Slices * Stacks + Slices; ++i) {
+
+		mesh->indici.push_back(i);
+		mesh->indici.push_back(i + Slices + 1);
+		mesh->indici.push_back(i + Slices);
+
+
+		mesh->indici.push_back(i + Slices + 1);
+		mesh->indici.push_back(i);
+		mesh->indici.push_back(i + 1);
+	}
+
+	mesh->vertici.push_back(vec3(0.0, 1.0, 0.0));
+	mesh->colori.push_back(vec4(0.0, 1.0, 0.0, 1.0));
+	int nv = mesh->vertici.size();
+	mesh->indici.push_back(nv - 1);
+}
 void costruisci_fontana(vec4 color_top, vec4 color_bot, Figura* fontana)
 {
 	float* t;
@@ -226,9 +276,9 @@ void rivoluzione(Figura figura, Mesh* superficie)
 			z = figura.vertici[i].x * sin(t);
 			superficie->vertici.push_back(vec3(x, y, z));
 			if (i % 2 == 0)
-				superficie->colori.push_back(vec4(1.0, 0.0, 0.0, 1.0));
+				superficie->colori.push_back(vec4(0.5, 0.5, 0.5, 1.0));
 			else
-				superficie->colori.push_back(vec4(1.0, 1.0, 0.0, 1.0));
+				superficie->colori.push_back(vec4(0.3, 0.3, 0.3, 1.0));
 		}
 	}
 	int n = figura.vertici.size() - 1;
