@@ -38,8 +38,7 @@ int selected_obj = -1;
 unsigned int legno;
 
 // Gestione camera
-int vistaCamera = 1; // Rappresenta la vista fissa, il fuoco resta al centro del soggetto e non è possibile muoverla
-// Viene settata di default e successivamente può essere modificata trasformandola in mobile, in quel caso punta sempre dritto però può essere ruotata con il mouse 
+int vistaCamera = 1; //vista generica, 2 per vista personaggio, 3 dall'alto 
 string Operazione;
 string stringa_asse;
 int idPrincipale, idfi;
@@ -354,7 +353,7 @@ void INIT_VAO() {
 	Mesh Testa, Corpo, BraccioSx, BraccioDx, GambaSx, GambaDx;
 
 	//TESTA
-	crea_sfera(&Testa, vec4(0.0, 1.0, 1.0, 1.0));
+	crea_sfera(&Testa, vec4(1.0, 1.0, 0.0, 1.0));
 	crea_VAO_Vector(&Testa);
 	Testa.Model = mat4(1.0);
 	Testa.Model = translate(Testa.Model, vec3(0.0, 1.75, 0.0));
@@ -488,29 +487,100 @@ void INIT_CAMERA_PROJECTION()
 	PerspectiveSetup.near_plane = 0.1f;
 }
 
-void moveCameraLeft() {
-	glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));   //direzione perpendicolare al piano individuato da direction e upvector
-	ViewSetup.position -= glm::vec4(direzione_scorrimento, .0) * cameraSpeed;
-	ViewSetup.target = ViewSetup.position + ViewSetup.direction * cameraSpeed;;
+//--------------MOVIMENTO CAMERA ------------------
+void moveCameraLeft(int vistaCorrente) {
+	if (vistaCorrente == 1) {
+		glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));   //direzione perpendicolare al piano individuato da direction e upvector
+		ViewSetup.position -= glm::vec4(direzione_scorrimento, .0) * cameraSpeed;
+		ViewSetup.target = ViewSetup.position + ViewSetup.direction * cameraSpeed;
+	}
+	else if (vistaCorrente == 2) {
+		//Ti sposti in derminati modi
+	} 
+	else {
+		//Ti sposti in derminati modi
+		ViewSetup.direction = vec4(-1.0, 0.0, 0.0, 0.0);
+		ViewSetup.position += ViewSetup.direction * cameraSpeed;
+		ViewSetup.target += ViewSetup.direction;
+	}
 }
 
-void moveCameraRight() {
-	glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));
-	ViewSetup.position += glm::vec4(direzione_scorrimento, .0) * cameraSpeed;
-	ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+void moveCameraRight(int vistaCorrente) {
+	if (vistaCorrente == 1) {
+		glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));
+		ViewSetup.position += glm::vec4(direzione_scorrimento, .0) * cameraSpeed; //Questo potrebbe essere il pezzo fondamentale che mi serve
+		ViewSetup.target = ViewSetup.position + ViewSetup.direction; // questo dovrebbe essere a dove si sta puntando invece
+	}
+	else if (vistaCorrente == 2) {
+		//Ti sposti in derminati modi (Da valutare, prima effettuare il cambio della scena cioe implementare il riposizionamento)
+		// Collegare prima l'omino e poi ancorargli la camera, bloccare le direzioni impostate dal mouse (l'altezza non cambia, si va solo avanti,indietro,destra,sinistra)
+	}
+	else {
+		//Ti sposti in derminati modi
+		ViewSetup.direction = vec4(1.0, 0.0, 0.0, 0.0);
+		ViewSetup.position += ViewSetup.direction * cameraSpeed; 
+		ViewSetup.target += ViewSetup.direction;
+	}
 }
 
-void moveCameraForward() {
+void moveCameraForward(int vistaCorrente) {
+	if (vistaCorrente == 1) {
+		ViewSetup.position += ViewSetup.direction * cameraSpeed;
+		ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+	}
+	else if (vistaCorrente == 2) {
+		//Ti sposti in derminati modi
+	}
+	else {
+		ViewSetup.direction = vec4(0.0, 0.0, -1.0, 0.0);
+		ViewSetup.position += ViewSetup.direction * cameraSpeed;
+		ViewSetup.target += ViewSetup.direction;
+	}
+}
 
+void moveCameraBack(int vistaCorrente) {
+	if (vistaCorrente == 1) {
+		ViewSetup.position -= ViewSetup.direction * cameraSpeed;
+		ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+	}
+	else if (vistaCorrente == 2) {
+		//Ti sposti in derminati modi
+	}
+	else {
+		ViewSetup.direction = vec4(0.0, 0.0, 1.0, 0.0);
+		ViewSetup.position += ViewSetup.direction * cameraSpeed;
+		ViewSetup.target += ViewSetup.direction;
+	}
+}
+
+void zoomIn() { // Abbassarsi lungo l'asse y
+	ViewSetup.direction = vec4(0.0, 1.0, 0.0, 0.0);
 	ViewSetup.position += ViewSetup.direction * cameraSpeed;
-	ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+	ViewSetup.target += ViewSetup.direction;
 }
 
-void moveCameraBack() {
-	ViewSetup.position -= ViewSetup.direction * cameraSpeed;
-	ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+void zoomOut() { // Alzarsi lungo l'asse y
+	ViewSetup.direction = vec4(0.0, -1.0, 0.0, 0.0);
+	ViewSetup.position += ViewSetup.direction * cameraSpeed;
+	ViewSetup.target += ViewSetup.direction;
 }
 
+void cambioScena(int vistaCorrente) {
+	/* In teoria sarà necessaio cambiare automaticamente la scena passando da fissa a mobile*/
+	if (vistaCorrente == 1) {
+		vistaCamera = 2;
+		//Implementare il cambio fotocamera (spostarla)
+	}
+	else if (vistaCorrente == 2) {
+		vistaCamera = 3;
+		ViewSetup.position = glm::vec4(0.0, 30, 25.0, 0.0);
+		ViewSetup.target = glm::vec4(0.0, 0.0, 0.0, 0.0);
+	}
+	else {
+		vistaCamera = 1;
+	}
+}
+//--------------FINE MOVIMENTO CAMERA ------------------
 void modifyModelMatrix(glm::vec3 translation_vector, glm::vec3 rotation_vector, GLfloat angle, GLfloat scale_factor)
 {
 	//ricordare che mat4(1) costruisce una matrice identità di ordine 4
@@ -624,6 +694,7 @@ void drawScene(void)
 		glBindVertexArray(0);
 	}
 	//Disegno fontana
+	/*
 	rivoluzione(Fontana, &Fontana3D);
 	crea_VAO_Vector(&Fontana3D);
 	Fontana3D.Model = mat4(1.0);
@@ -635,6 +706,7 @@ void drawScene(void)
 	glBindVertexArray(Fontana3D.VAO);
 	glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
+	*/
 
 	//Disegno Personaggio
 	for (int k = 0; k < Personaggio.size(); k++)
@@ -660,6 +732,7 @@ void drawScene(void)
 	}
 
 	//Disegno Lampione
+	/*
 	for (int i = 0; i < Lampione.size(); i++) {
 		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Lampione[i].Model));
 		glUniform1i(lscelta, Lampione[i].sceltaVS);
@@ -671,7 +744,7 @@ void drawScene(void)
 		glDrawElements(GL_TRIANGLES, (Lampione[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}
-
+	*/
 	glutSwapBuffers();
 }
 
@@ -700,45 +773,37 @@ void drawSceneSecWind(void)
 */
 
 void keyboardPressedEvent(unsigned char key, int x, int y) {
-	/*
-	if (vistaCamera == 1) {
-		// Visuale fissa, si muove solo a destra, sinistra, verso l'alto e verso il basso, l'uso del mouse è disabilitato ed il fuoco è sull'omino
-		// Si offre la possibilità di zoomare
-		// Da vedere perche se si cambia e si inserisce solo il cambio con la panchina allora può esre rimosso yutto ciò e bisogna sdolo preoccuarsi di bloccare i comandi e settare la camera già nel punto della panchina
-		switch (key)
-		{
-			case 'v':
-				cout << "cambio visuale" << endl;
-				cambiaScena();
-				break;
-
-			default:
-				break;
-		}
-	}
-	else {
-		// Visuale mobile, può essere girata con il mouse, il fuoco punta sempre avanti all'omino
-	}
-	*/
+	
 	switch (key)
 	{
 	case 'a':
 		cout << "movimento telecamera sx" << endl;
-		moveCameraLeft();
+		moveCameraLeft(vistaCamera);
 		break;
 	case 'd':
 		cout << "movimento telecamera dx" << endl;
-		moveCameraRight();
+		moveCameraRight(vistaCamera);
 		break;
 	case 'w':
 		cout << "movimento telecamera su" << endl;
-		moveCameraForward();
+		moveCameraForward(vistaCamera);
 		break;
 	case 's':
 		cout << "movimento telecamera giu" << endl;
-		moveCameraBack();
+		moveCameraBack(vistaCamera);
 		break;
-	
+	case 'q':
+		cout << "zoom-in" << endl;
+		zoomIn();
+		break;
+	case 'e':
+		cout << "zoom-out" << endl;
+		zoomOut();
+		break;
+	case 'v':
+		cout << "cambio scena" << endl;
+		cambioScena(vistaCamera);
+		break;
 	case 'g':  //Si entra in modalità di operazione traslazione
 		OperationMode = TRASLATING;
 		Operazione = "TRASLAZIONE";
@@ -801,7 +866,6 @@ void keyboardPressedEvent(unsigned char key, int x, int y) {
 	if (key == '-')
 		amount *= -1;
 
-
 	switch (OperationMode) {
 
 		//la funzione modifyModelMatrix(glm::vec3 translation_vector, glm::vec3 rotation_vector, GLfloat angle, GLfloat scale_factor) 
@@ -819,7 +883,6 @@ void keyboardPressedEvent(unsigned char key, int x, int y) {
 		// SI mette a zero il vettore di traslazione (vec3(0), angolo di rotazione a 0 e ad 1 il fattore di scala 1+amount.
 		modifyModelMatrix(glm::vec3(0), asse, 0.0f, 1.0f + amount);
 		break;
-
 	}
 
 	/*
@@ -829,12 +892,6 @@ void keyboardPressedEvent(unsigned char key, int x, int y) {
 
 	glutSetWindow(idPrincipale);
 	glutPostRedisplay();
-
-}
-
-void cambiaScena() 
-{
-	/* In teoria sarà necessaio cambiare automaticamente la scena passando da fissa a mobile*/
 }
 
 // Gestione selezione oggetti schermata secondaria
@@ -968,8 +1025,11 @@ void my_passive_mouse(int xpos, int ypos)
 	front.x = cos(glm::radians(yaw_)) * cos(glm::radians(pitch_));
 	front.y = sin(glm::radians(pitch_));
 	front.z = sin(glm::radians(yaw_)) * cos(glm::radians(pitch_));
-	ViewSetup.direction = vec4(normalize(front), 0.0);
-	ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+	// Movimento della camera in base al movimento del mouse
+	if(vistaCamera == 1){
+		ViewSetup.direction = vec4(normalize(front), 0.0);
+		ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+	}
 	glutSetWindow(idPrincipale);
 	glutPostRedisplay();
 }
