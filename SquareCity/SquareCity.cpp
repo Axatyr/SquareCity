@@ -69,9 +69,8 @@ enum {
 float angoloUp = 0;
 
 // Oggetti nella scena
-static vector<Mesh> Personaggio;
-static vector<Mesh> Lampione;
-Mesh Cubo, Piano, Piramide, Centri, Sole, Panchina, Albero, Edificio, Fontana3D, Palo, Lampada;
+static vector<Mesh> Personaggio, Lampione, Edificio1, Edificio2, Edificio3, Edificio4;
+Mesh Cubo, Piano, Piramide, Centri, Sole, Panchina, Albero, Fontana3D, Palo, Lampada, Palazzo, Tetto, Porta, Finestra1, Finestra2, Piazza;
 Figura Fontana;
 
 // Da controllare a cosa serve
@@ -254,6 +253,19 @@ void INIT_VAO() {
 	Piano.material = MaterialType::EMERALD;
 	Scena.push_back(Piano);
 
+	//PIAZZA
+	crea_piano(&Piazza, vec4(1.0, 1.0, 1.0, 1.0));
+	crea_VAO_Vector(&Piazza);
+	Piazza.nome = "piazza";
+	Piazza.Model = mat4(1.0);
+	Piazza.Model = translate(Piazza.Model, vec3(0.0, -1.0, 0.0));
+	centri.push_back(vec3(0.0, 0.0, 0.0));
+	Piazza.Model = scale(Piazza.Model, vec3(10.0, 1.0f, 10.0));
+	raggi.push_back(1.5);
+	Piazza.sceltaVS = 0;
+	Piazza.material = MaterialType::EMERALD;
+	Scena.push_back(Piazza);
+
 	//SOLE
 	crea_sfera(&Sole, vec4(1.0, 216.0 / 255.0, 0.0, 1.0));
 	crea_VAO_Vector(&Sole);
@@ -326,6 +338,76 @@ void INIT_VAO() {
 	Lampada.sceltaVS = 0;
 	Lampada.material = MaterialType::RED_PLASTIC;
 	Lampione.push_back(Lampada);
+
+	//Edifici
+	//1
+	//palazzo
+	crea_cubo(&Palazzo, vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
+	crea_VAO_Vector(&Palazzo);
+	Palazzo.Model = mat4(1.0);
+	Palazzo.Model = translate(Palazzo.Model, vec3(0.0, 1.0, -20.0));
+	Palazzo.Model = scale(Palazzo.Model, vec3(5.0, 5.0, 5.0));
+	Palazzo.nome = "palazzo";
+	centri.push_back(vec3(0.0, 2.0, 0.0));
+	raggi.push_back(0.5);
+	Palazzo.sceltaVS = 0;
+	Palazzo.material = MaterialType::RED_PLASTIC;
+	Edificio1.push_back(Palazzo);
+	//tetto
+	crea_piramide(&Tetto, vec4(1.0, 0.0, 0.0, 1.0));
+	crea_VAO_Vector(&Tetto);
+	Tetto.Model = mat4(1.0);
+	Tetto.Model = translate(Tetto.Model, vec3(0.0, 6.0, -20.0));
+	Tetto.Model = scale(Tetto.Model, vec3(5.0, 4.0, 5.0));
+	Tetto.nome = "tetto";
+	centri.push_back(vec3(0.0, 2.0, 0.0));
+	raggi.push_back(0.5);
+	Tetto.sceltaVS = 0;
+	Tetto.material = MaterialType::RED_PLASTIC;
+	Edificio1.push_back(Tetto);
+	//porta
+	crea_piano(&Porta, vec4(139.0/255.0, 69.0/255.0, 19.0/255.0, 1.0));
+	crea_VAO_Vector(&Porta);
+	Porta.nome = "porta";
+	Porta.Model = mat4(1.0);
+	Porta.Model = translate(Porta.Model, vec3(0.0, 0.0, -14.9));
+	centri.push_back(vec3(0.0, 0.0, 0.0));
+	Porta.Model = scale(Porta.Model, vec3(1.0, 2.0, 2.0));
+	Porta.Model = rotate(Porta.Model, radians(90.0f), vec3(1.0, 0.0, 0.0));
+	raggi.push_back(1.5);
+	Porta.sceltaVS = 0;
+	Porta.material = MaterialType::EMERALD;
+	Edificio1.push_back(Porta);
+	//finestra1
+	crea_piano(&Finestra1, vec4(0.0, 0.0, 1.0, 1.0));
+	crea_VAO_Vector(&Finestra1);
+	Finestra1.nome = "finestra1";
+	Finestra1.Model = mat4(1.0);
+	Finestra1.Model = translate(Finestra1.Model, vec3(-2.0, 4.0, -14.9));
+	centri.push_back(vec3(0.0, 0.0, 0.0));
+	Finestra1.Model = scale(Finestra1.Model, vec3(1.0, 1.0, 1.0));
+	Finestra1.Model = rotate(Finestra1.Model, radians(90.0f), vec3(1.0, 0.0, 0.0));
+	raggi.push_back(1.5);
+	Finestra1.sceltaVS = 0;
+	Finestra1.material = MaterialType::EMERALD;
+	Edificio1.push_back(Finestra1);
+	//finestra2
+	crea_piano(&Finestra2, vec4(0.0, 0.0, 1.0, 1.0));
+	crea_VAO_Vector(&Finestra2);
+	Finestra2.nome = "finestra2";
+	Finestra2.Model = mat4(1.0);
+	Finestra2.Model = translate(Finestra2.Model, vec3(2.0, 4.0, -14.9));
+	centri.push_back(vec3(0.0, 0.0, 0.0));
+	Finestra2.Model = scale(Finestra2.Model, vec3(1.0, 1.0, 1.0));
+	Finestra2.Model = rotate(Finestra2.Model, radians(90.0f), vec3(1.0, 0.0, 0.0));
+	raggi.push_back(1.5);
+	Finestra2.sceltaVS = 0;
+	Finestra2.material = MaterialType::EMERALD;
+	Edificio1.push_back(Finestra2);
+
+	//2
+
+
 
 	//EDIFICIO
 	/*obj = loadOBJ(ObjDir + "Building.obj", Edificio);
@@ -669,7 +751,7 @@ void drawScene(void)
 	glDrawElements(GL_TRIANGLES, (Scena[1].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
-	//Disegno Sole
+	//Disegno piazza
 	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[2].Model));
 	glUniform1i(lscelta, Scena[2].sceltaVS);
 	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[2].material].ambient));
@@ -680,8 +762,19 @@ void drawScene(void)
 	glDrawElements(GL_TRIANGLES, (Scena[2].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
+	//Disegno Sole
+	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[3].Model));
+	glUniform1i(lscelta, Scena[3].sceltaVS);
+	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[3].material].ambient));
+	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[3].material].diffuse));
+	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[3].material].specular));
+	glUniform1f(light_unif.material_shininess, materials[Scena[3].material].shininess);
+	glBindVertexArray(Scena[3].VAO);
+	glDrawElements(GL_TRIANGLES, (Scena[3].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+	glBindVertexArray(0);
+
 	//Disegno oggetti
-	for (int k = 4; k < Scena.size(); k++) {
+	for (int k = 5; k < Scena.size(); k++) {
 		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[k].Model));
 		glUniform1i(lscelta, Scena[k].sceltaVS);
 		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[k].material].ambient));
@@ -694,7 +787,6 @@ void drawScene(void)
 		glBindVertexArray(0);
 	}
 	//Disegno fontana
-	/*
 	rivoluzione(Fontana, &Fontana3D);
 	crea_VAO_Vector(&Fontana3D);
 	Fontana3D.Model = mat4(1.0);
@@ -706,7 +798,6 @@ void drawScene(void)
 	glBindVertexArray(Fontana3D.VAO);
 	glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
-	*/
 
 	//Disegno Personaggio
 	for (int k = 0; k < Personaggio.size(); k++)
@@ -732,7 +823,6 @@ void drawScene(void)
 	}
 
 	//Disegno Lampione
-	/*
 	for (int i = 0; i < Lampione.size(); i++) {
 		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Lampione[i].Model));
 		glUniform1i(lscelta, Lampione[i].sceltaVS);
@@ -744,7 +834,18 @@ void drawScene(void)
 		glDrawElements(GL_TRIANGLES, (Lampione[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}
-	*/
+	//Disegno case
+	for (int i = 0; i < Edificio1.size(); i++) {
+		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Edificio1[i].Model));
+		glUniform1i(lscelta, Edificio1[i].sceltaVS);
+		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Edificio1[i].material].ambient));
+		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Edificio1[i].material].diffuse));
+		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Edificio1[i].material].specular));
+		glUniform1f(light_unif.material_shininess, materials[Edificio1[i].material].shininess);
+		glBindVertexArray(Edificio1[i].VAO);
+		glDrawElements(GL_TRIANGLES, (Edificio1[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+		glBindVertexArray(0);
+	}
 	glutSwapBuffers();
 }
 

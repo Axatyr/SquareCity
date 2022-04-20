@@ -14,6 +14,8 @@ void crea_toro(Mesh* mesh, vec4 color);
 void crea_sfera(Mesh* mesh, vec4 color);
 //Per il palo dei lampioni
 void crea_cilindro(Mesh* mesh, vec4 colore);
+//Per edifici
+void crea_piramide(Mesh* mesh, vec4 color);
 //Per quello che dobbiamo creare con Hermitte
 void costruisci_fontana(vec4 color_top, vec4 color_bot, Figura* forma);
 //Per quello che dobbiamo creare con Bezier
