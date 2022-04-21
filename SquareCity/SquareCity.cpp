@@ -35,7 +35,7 @@ static unsigned int lsh, lscelta, loc_view_pos, lblinn;
 int selected_obj = -1;
 
 //texture
-unsigned int legno;
+unsigned int legno, pavimento_piazza, muro, erba, foglie, vetro, mosaico, tegole;
 
 // Gestione camera
 int vistaCamera = 1; //vista generica, 2 per vista personaggio, 3 dall'alto 
@@ -70,7 +70,8 @@ float angoloUp = 0;
 
 // Oggetti nella scena
 static vector<Mesh> Personaggio, Lampione, Edificio1, Edificio2, Edificio3, Edificio4;
-Mesh Cubo, Piano, Piramide, Centri, Sole, Panchina, Albero, Fontana3D, Palo, Lampada, Palazzo, Tetto, Porta, Finestra1, Finestra2, Piazza;
+Mesh Cubo, Piano, Piramide, Centri, Sole, Panchina, Albero, Fontana3D, Palo, Lampada, Piazza;
+Mesh Palazzo, Tetto, Porta, Finestra1, Finestra2;
 Mesh Palazzo2, Porta2, Finestra3, Finestra4, Finestra5;
 Mesh Palazzo3, Porta3, Finestra6, Finestra7;
 Mesh Palazzo4, Tetto2, Porta4, Finestra8;
@@ -95,14 +96,14 @@ float angolo = 0.0; // Per luce
 
 //Puntatori alle variabili uniformi per l'impostazione dell'illuminazione
 LightShaderUniform light_unif = {};
-/*
+
 unsigned int loadTexture(char const* path)
 {
 	unsigned int textureID;
 	glGenTextures(1, &textureID);
 
-	int width, height, nrComponents;
-	unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+	int widthText, heightText, nrComponents;
+	unsigned char* data = stbi_load(path, &widthText, &heightText, &nrComponents, 0);
 	if (data)
 	{
 		GLenum format;
@@ -114,7 +115,7 @@ unsigned int loadTexture(char const* path)
 			format = GL_RGBA;
 
 		glBindTexture(GL_TEXTURE_2D, textureID);
-		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+		glTexImage2D(GL_TEXTURE_2D, 0, format, widthText, heightText, 0, format, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -132,7 +133,72 @@ unsigned int loadTexture(char const* path)
 
 	return textureID;
 }
-*/
+
+void genera_texture(void)
+{
+	glGenTextures(1, &muro);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, muro);
+	// set the texture wrapping/filtering options (on the currently bound texture object)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// load and generate the texture
+	int widthT, heightT, nrChannels;
+	stbi_set_flip_vertically_on_load(1);
+	stbi_uc* data = stbi_load("muromattoni.jpg", &widthT, &heightT, &nrChannels, 0);
+	if (data)
+	{
+		GLenum format;
+		if (nrChannels == 3)
+			format = GL_RGB;
+
+		if (nrChannels == 4)
+			format = GL_RGBA;
+		glTexImage2D(GL_TEXTURE_2D, 0, format, widthT, heightT, 0, format, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+		printf("Tutto OK muro \n");
+	}
+	else
+	{
+		printf("Errore nel caricare la texture muro\n");
+	}
+	stbi_image_free(data);
+
+
+	glGenTextures(1, &erba);
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, erba);
+	// set the texture wrapping/filtering options (on the currently bound texture object)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	// load and generate the texture
+	data = stbi_load("erba.png", &widthT, &heightT, &nrChannels, 0);
+	stbi_set_flip_vertically_on_load(1);
+	if (data)
+	{
+		GLenum format;
+		if (nrChannels == 3)
+			format = GL_RGB;
+		if (nrChannels == 4)
+			format = GL_RGBA;
+
+		glTexImage2D(GL_TEXTURE_2D, 0, format, widthT, heightT, 0, format, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+		printf("Tutto OK erba \n");
+	}
+	else
+	{
+		printf("Errore nel caricare la texture erba\n");
+	}
+	stbi_image_free(data);
+
+
+}
+
 void INIT_SHADER(void)
 {
 	GLenum ErrorCheckValue = glGetError();
@@ -221,7 +287,14 @@ void INIT_VAO_Text(void)
 
 void INIT_VAO() {
 
-	//legno = loadTexture("legno.jpg");
+	legno = loadTexture("legno.jpg");
+	pavimento_piazza = loadTexture("piazza.jpg");
+	muro = loadTexture("muromattoni.jpg");
+	foglie = loadTexture("foglie.jpg");
+	erba = loadTexture("erba.jpg");
+	vetro = loadTexture("vetro.jpg");
+	mosaico = loadTexture("mosaico.jpg");
+	tegole = loadTexture("tegole.jpg");
 
 	Mesh Sfondo;
 	string ObjDir = "object/";
@@ -263,7 +336,7 @@ void INIT_VAO() {
 	Piazza.Model = mat4(1.0);
 	Piazza.Model = translate(Piazza.Model, vec3(0.0, -1.3, 0.0));
 	centri.push_back(vec3(0.0, 0.0, 0.0));
-	Piazza.Model = scale(Piazza.Model, vec3(10.0, 1.0f, 10.0));
+	Piazza.Model = scale(Piazza.Model, vec3(15.0, 1.0f, 15.0));
 	raggi.push_back(1.5);
 	Piazza.sceltaVS = 0;
 	Piazza.material = MaterialType::EMERALD;
@@ -271,6 +344,7 @@ void INIT_VAO() {
 
 	//SOLE
 	crea_sfera(&Sole, vec4(1.0, 216.0 / 255.0, 0.0, 1.0));
+	Sole.texCoords.clear();
 	crea_VAO_Vector(&Sole);
 	Sole.Model = mat4(1.0);
 	Sole.Model = translate(Sole.Model, vec3(0.0, 21.0, 0.0));
@@ -279,11 +353,14 @@ void INIT_VAO() {
 	centri.push_back(vec3(0.0, 2.0, 0.0));
 	raggi.push_back(0.5);
 	Sole.sceltaVS = 0;
-	Sole.material = MaterialType::RED_PLASTIC;
+	Sole.material = MaterialType::YELLOW;
 	Scena.push_back(Sole);
 
 	//PANCHINA	
 	obj = loadOBJ(ObjDir + "panchina.obj", Panchina);
+	for (int i = 0; i < Panchina.colori.size(); i++) {
+		Panchina.colori[i] = vec4(139.0/255.0, 69.0/255.0, 19.0/255.0, 1.0);
+	}
 	crea_VAO_Vector(&Panchina);
 	Panchina.nome = "panchina";
 	Panchina.Model = mat4(1.0);
@@ -303,6 +380,9 @@ void INIT_VAO() {
 
 	//ALBERO
 	obj = loadOBJ(ObjDir + "Tree.obj", Albero);
+	for (int i = 0; i < Albero.colori.size(); i++) {
+		Albero.colori[i] = vec4(0.0, 100.0/255.0, 0.0, 1.0);
+	}
 	crea_VAO_Vector(&Albero);
 	Albero.nome = "albero";
 	Albero.Model = mat4(1.0);
@@ -312,12 +392,13 @@ void INIT_VAO() {
 	centri.push_back(vec3(Albero.Model * vec4(0.0, 0.0, 0.0, 1.0)));
 	raggi.push_back(1.0);
 	Albero.sceltaVS = 0;
-	Albero.material = MaterialType::EMERALD;
+	Albero.material = MaterialType::BRASS;
 	Scena.push_back(Albero);
 
 	//LAMPIONE
 	//Palo
 	crea_cilindro(&Palo, vec4(0.5, 0.5, 0.5, 1.0));
+	Palo.texCoords.clear();
 	crea_VAO_Vector(&Palo);
 	Palo.Model = mat4(1.0);
 	Palo.Model = translate(Palo.Model, vec3(-4.0, -1.0, 7.0));
@@ -345,6 +426,10 @@ void INIT_VAO() {
 	//1
 	//palazzo
 	crea_cubo(&Palazzo, vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
+	Palazzo.texCoords.clear();
+	for (int i = 0; i < Palazzo.vertici.size(); i++) {
+		Palazzo.texCoords.push_back(Palazzo.vertici[i]);
+	}
 	crea_VAO_Vector(&Palazzo);
 	Palazzo.Model = mat4(1.0);
 	Palazzo.Model = translate(Palazzo.Model, vec3(0.0, 1.0, -20.0));
@@ -357,6 +442,9 @@ void INIT_VAO() {
 	Edificio1.push_back(Palazzo);
 	//tetto
 	crea_piramide(&Tetto, vec4(1.0, 0.0, 0.0, 1.0));
+	for (int i = 0; i < Tetto.vertici.size(); i++) {
+		Tetto.texCoords.push_back(Tetto.vertici[i]);
+	}
 	crea_VAO_Vector(&Tetto);
 	Tetto.Model = mat4(1.0);
 	Tetto.Model = translate(Tetto.Model, vec3(0.0, 6.0, -20.0));
@@ -410,6 +498,10 @@ void INIT_VAO() {
 	//2
 	//palazzo
 	crea_cubo(&Palazzo2, vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
+	Palazzo2.texCoords.clear();
+	for (int i = 0; i < Palazzo2.vertici.size(); i++) {
+		Palazzo2.texCoords.push_back(Palazzo2.vertici[i]);
+	}
 	crea_VAO_Vector(&Palazzo2);
 	Palazzo2.Model = mat4(1.0);
 	Palazzo2.Model = translate(Palazzo2.Model, vec3(-20, 1.0, 0.0));
@@ -475,6 +567,10 @@ void INIT_VAO() {
 	//3
 	//palazzo
 	crea_cubo(&Palazzo3, vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
+	Palazzo3.texCoords.clear();
+	for (int i = 0; i < Palazzo3.vertici.size(); i++) {
+		Palazzo3.texCoords.push_back(Palazzo3.vertici[i]);
+	}
 	crea_VAO_Vector(&Palazzo3);
 	Palazzo3.Model = mat4(1.0);
 	Palazzo3.Model = translate(Palazzo3.Model, vec3(20, 1.0, -5.0));
@@ -527,6 +623,10 @@ void INIT_VAO() {
 	//4
 	//palazzo
 	crea_cubo(&Palazzo4, vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
+	Palazzo4.texCoords.clear();
+	for (int i = 0; i < Palazzo4.vertici.size(); i++) {
+		Palazzo4.texCoords.push_back(Palazzo4.vertici[i]);
+	}
 	crea_VAO_Vector(&Palazzo4);
 	Palazzo4.Model = mat4(1.0);
 	Palazzo4.Model = translate(Palazzo4.Model, vec3(20.0, 1.0, 5.0));
@@ -539,6 +639,9 @@ void INIT_VAO() {
 	Edificio4.push_back(Palazzo4);
 	//tetto
 	crea_piramide(&Tetto2, vec4(1.0, 0.0, 0.0, 1.0));
+	for (int i = 0; i < Tetto2.vertici.size(); i++) {
+		Tetto2.texCoords.push_back(Tetto2.vertici[i]);
+	}
 	crea_VAO_Vector(&Tetto2);
 	Tetto2.Model = mat4(1.0);
 	Tetto2.Model = translate(Tetto2.Model, vec3(20.0, 6.0, 5.0));
@@ -603,6 +706,7 @@ void INIT_VAO() {
 
 	//TESTA
 	crea_sfera(&Testa, vec4(1.0, 1.0, 0.0, 1.0));
+	Testa.texCoords.clear();
 	crea_VAO_Vector(&Testa);
 	Testa.Model = mat4(1.0);
 	Testa.Model = translate(Testa.Model, vec3(0.0, 1.75, 0.0));
@@ -614,6 +718,7 @@ void INIT_VAO() {
 
 	//CORPO
 	crea_sfera(&Corpo, vec4(1.0, 1.0, 1.0, 1.0));
+	Corpo.texCoords.clear();
 	crea_VAO_Vector(&Corpo);
 	Corpo.Model = mat4(1.0);
 	Corpo.Model = translate(Corpo.Model, vec3(0.0, -0.2, 0.0));
@@ -626,6 +731,7 @@ void INIT_VAO() {
 	
 	//BRACCIO SINISTRO
 	crea_sfera(&BraccioSx, vec4(1.0, 1.0, 1.0, 1.0));
+	BraccioSx.texCoords.clear();
 	crea_VAO_Vector(&BraccioSx);
 	BraccioSx.Model = mat4(1.0);
 	BraccioSx.Model = translate(BraccioSx.Model, vec3(-1.0, 0.0, 0.0));
@@ -638,6 +744,7 @@ void INIT_VAO() {
 
 	//BRACCIO DESTRO
 	crea_sfera(&BraccioDx, vec4(1.0, 1.0, 1.0, 1.0));
+	BraccioDx.texCoords.clear();
 	crea_VAO_Vector(&BraccioDx);
 	BraccioDx.Model = mat4(1.0);
 	BraccioDx.Model = translate(BraccioDx.Model, vec3(1.0, 0.0, 0.0));
@@ -914,7 +1021,8 @@ void drawScene(void)
 	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[1].material].diffuse));
 	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[1].material].specular));
 	glUniform1f(light_unif.material_shininess, materials[Scena[1].material].shininess);
-	glBindVertexArray(Scena[1].VAO);
+	glBindTexture(GL_TEXTURE_2D, erba);
+	glBindVertexArray(Scena[1].VAO); 
 	glDrawElements(GL_TRIANGLES, (Scena[1].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
@@ -925,6 +1033,7 @@ void drawScene(void)
 	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[2].material].diffuse));
 	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[2].material].specular));
 	glUniform1f(light_unif.material_shininess, materials[Scena[2].material].shininess);
+	glBindTexture(GL_TEXTURE_2D, pavimento_piazza);
 	glBindVertexArray(Scena[2].VAO);
 	glDrawElements(GL_TRIANGLES, (Scena[2].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
@@ -948,8 +1057,13 @@ void drawScene(void)
 		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[k].material].diffuse));
 		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[k].material].specular));
 		glUniform1f(light_unif.material_shininess, materials[Scena[k].material].shininess);
-		glBindVertexArray(Scena[k].VAO);
-		//glBindTexture(GL_TEXTURE_2D, legno);
+		if (Scena[k].nome == "panchina") {
+			glBindTexture(GL_TEXTURE_2D, legno);
+		}
+		else if (Scena[k].nome == "albero") {
+			glBindTexture(GL_TEXTURE_2D, foglie);
+		}
+		glBindVertexArray(Scena[k].VAO);		
 		glDrawArrays(GL_TRIANGLES, 0, Scena[k].vertici.size());
 		glBindVertexArray(0);
 	}
@@ -962,6 +1076,7 @@ void drawScene(void)
 	glUniformMatrix4fv(MatView, 1, GL_FALSE, value_ptr(View));
 	glPointSize(2.0);
 	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Fontana3D.Model));
+	glBindTexture(GL_TEXTURE_2D, mosaico);
 	glBindVertexArray(Fontana3D.VAO);
 	glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
@@ -997,6 +1112,9 @@ void drawScene(void)
 		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Lampione[i].material].diffuse));
 		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Lampione[i].material].specular));
 		glUniform1f(light_unif.material_shininess, materials[Lampione[i].material].shininess);
+		if (Lampione[i].nome == "lampada") {
+			glBindTexture(GL_TEXTURE_2D, vetro);
+		}
 		glBindVertexArray(Lampione[i].VAO);
 		glDrawElements(GL_TRIANGLES, (Lampione[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -1010,7 +1128,19 @@ void drawScene(void)
 		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Edificio1[i].material].diffuse));
 		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Edificio1[i].material].specular));
 		glUniform1f(light_unif.material_shininess, materials[Edificio1[i].material].shininess);
-		glBindVertexArray(Edificio1[i].VAO);
+		if (Edificio1[i].nome == "palazzo") {
+			glBindTexture(GL_TEXTURE_2D, muro);
+		}
+		else if (Edificio1[i].nome == "porta") {
+			glBindTexture(GL_TEXTURE_2D, legno);
+		}
+		else if (Edificio1[i].nome == "tetto") {
+			glBindTexture(GL_TEXTURE_2D, tegole);
+		}
+		else {
+			glBindTexture(GL_TEXTURE_2D, vetro);
+		}
+		glBindVertexArray(Edificio1[i].VAO); 
 		glDrawElements(GL_TRIANGLES, (Edificio1[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}
@@ -1022,6 +1152,15 @@ void drawScene(void)
 		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Edificio2[i].material].diffuse));
 		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Edificio2[i].material].specular));
 		glUniform1f(light_unif.material_shininess, materials[Edificio2[i].material].shininess);
+		if (Edificio2[i].nome == "palazzo2") {
+			glBindTexture(GL_TEXTURE_2D, muro);
+		}
+		else if (Edificio2[i].nome == "porta2") {
+			glBindTexture(GL_TEXTURE_2D, legno);
+		}
+		else {
+			glBindTexture(GL_TEXTURE_2D, vetro);
+		}
 		glBindVertexArray(Edificio2[i].VAO);
 		glDrawElements(GL_TRIANGLES, (Edificio2[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -1034,6 +1173,15 @@ void drawScene(void)
 		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Edificio3[i].material].diffuse));
 		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Edificio3[i].material].specular));
 		glUniform1f(light_unif.material_shininess, materials[Edificio3[i].material].shininess);
+		if (Edificio3[i].nome == "palazzo3") {
+			glBindTexture(GL_TEXTURE_2D, muro);
+		}
+		else if (Edificio3[i].nome == "porta3") {
+			glBindTexture(GL_TEXTURE_2D, legno);
+		}
+		else {
+			glBindTexture(GL_TEXTURE_2D, vetro);
+		}
 		glBindVertexArray(Edificio3[i].VAO);
 		glDrawElements(GL_TRIANGLES, (Edificio3[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
@@ -1046,6 +1194,18 @@ void drawScene(void)
 		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Edificio4[i].material].diffuse));
 		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Edificio4[i].material].specular));
 		glUniform1f(light_unif.material_shininess, materials[Edificio4[i].material].shininess);
+		if (Edificio4[i].nome == "palazzo4") {
+			glBindTexture(GL_TEXTURE_2D, muro);
+		}
+		else if (Edificio4[i].nome == "porta4") {
+			glBindTexture(GL_TEXTURE_2D, legno);
+		}
+		else if (Edificio4[i].nome == "tetto2") {
+			glBindTexture(GL_TEXTURE_2D, tegole);
+		}
+		else {
+			glBindTexture(GL_TEXTURE_2D, vetro);
+		}
 		glBindVertexArray(Edificio4[i].VAO);
 		glDrawElements(GL_TRIANGLES, (Edificio4[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
