@@ -1069,6 +1069,10 @@ void drawScene(void)
 	}
 	//Disegno fontana
 	rivoluzione(Fontana, &Fontana3D);
+	Fontana3D.texCoords.clear();
+	for (int i = 0; i < Fontana3D.vertici.size(); i++) {
+		Fontana3D.texCoords.push_back(Fontana3D.vertici[i]);
+	}
 	crea_VAO_Vector(&Fontana3D);
 	Fontana3D.Model = mat4(1.0);
 	Fontana3D.Model = translate(Fontana3D.Model, vec3(0.0, 1.0, 1.0));
