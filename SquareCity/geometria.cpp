@@ -294,3 +294,33 @@ void rivoluzione(Figura figura, Mesh* superficie)
 		superficie->indici.push_back(i + 1);
 	}
 }
+void crea_piramide(Mesh* mesh, vec4 color)
+{
+	mesh->vertici.push_back(vec3(-1.0, 0.0, 1.0));
+	mesh->colori.push_back(color);
+	mesh->vertici.push_back(vec3(1.0, 0.0, 1.0));
+	mesh->colori.push_back(color);
+	mesh->vertici.push_back(vec3(1.0, 0.0, -1.0));
+	mesh->colori.push_back(color);
+	mesh->vertici.push_back(vec3(-1.0, 0.0, -1.0));
+	mesh->colori.push_back(color);
+	// Apice piramide
+	mesh->vertici.push_back(vec3(0.0, 1.0, 0.0));
+	mesh->colori.push_back(color);
+
+	mesh->indici.push_back(0); mesh->indici.push_back(1); mesh->indici.push_back(2);
+	mesh->indici.push_back(0); mesh->indici.push_back(2); mesh->indici.push_back(3);
+
+	mesh->indici.push_back(0); mesh->indici.push_back(4); mesh->indici.push_back(3);
+	mesh->indici.push_back(0); mesh->indici.push_back(1); mesh->indici.push_back(4);
+
+	mesh->indici.push_back(3); mesh->indici.push_back(2); mesh->indici.push_back(4);
+	mesh->indici.push_back(1); mesh->indici.push_back(2); mesh->indici.push_back(4);
+
+	mesh->vertici.push_back(vec3(0.0, 0.0, 0.0));
+	mesh->colori.push_back(color);
+
+	int nv = mesh->vertici.size();
+	mesh->indici.push_back(nv - 1);
+
+}
