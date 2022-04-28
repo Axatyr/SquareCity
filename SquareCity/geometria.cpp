@@ -276,9 +276,9 @@ void rivoluzione(Figura figura, Mesh* superficie)
 			z = figura.vertici[i].x * sin(t);
 			superficie->vertici.push_back(vec3(x, y, z));
 			if (i % 2 == 0)
-				superficie->colori.push_back(vec4(0.5, 0.5, 0.5, 1.0));
+				superficie->colori.push_back(vec4(224.0/255.0, 1.0, 1.0, 1.0));
 			else
-				superficie->colori.push_back(vec4(0.3, 0.3, 0.3, 1.0));
+				superficie->colori.push_back(vec4(224.0/255.0, 1.0, 1.0, 1.0));
 		}
 	}
 	int n = figura.vertici.size() - 1;

@@ -82,6 +82,9 @@ typedef struct {
 	GLuint VBO_coord_texture;
 	string nome;
 	int tipo;
+	float posx;
+	float posy;
+	float posz;
 } Mesh;
 
 //Curva 2D da trasformare in 3D. Serve per Hermitte e Bezier

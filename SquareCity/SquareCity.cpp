@@ -35,7 +35,7 @@ static unsigned int lsh, lscelta, loc_view_pos, lblinn;
 int selected_obj = -1;
 
 //texture
-unsigned int legno, pavimento_piazza, muro, erba, foglie, vetro, mosaico, tegole;
+unsigned int legno, pavimento_piazza, muro, luna, foglie, vetro, mosaico, tegole;
 
 // Gestione camera
 int vistaCamera = 1; //vista generica, 2 per vista personaggio, 3 dall'alto 
@@ -50,6 +50,28 @@ float lastX = (float)width / 2;
 float lastY = (float)height / 2;
 float yaw_ = -90.0f;
 float pitch_ = 0.0f;
+
+vector<vec3> lightPositions = {
+	vec3(-13.0, 5.0, 12.0),
+	vec3(-13.0, 5.0, -12.0),
+	vec3(13.0, 5.0, -12.0),
+	vec3(13.0, 5.0, 12.0)
+};
+LightShaderUniform light_unif[5];
+point_light lights[5];
+float angolo = 0.0; // Per luce
+GLfloat light_ambient[] = { 0.1f, 0.1f, 0.1f, 0.1f };
+GLfloat light_diffuse[] = { 1.0f, 1.0f, 1.0f, 0.0f };
+GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 0.0f };
+GLfloat pos1[] = { -13.0, 5.0, 12.0 };
+GLfloat pos2[] = { -13.0, 5.0, -12.0 };
+GLfloat pos3[] = { 13.0, 5.0, -12.0 };
+GLfloat pos4[] = { 13.0, 5.0, 12.0 };
+
+// Gestione movimento sole
+bool mattina = true, pomeriggio = false, sera = false, notte = false;
+float est = -100.0, nord = 70.0, ovest = 300.0, sud = 70.0;
+float fattoreVelocita = 0.2;
 
 enum {
 	NAVIGATION,
@@ -70,12 +92,14 @@ float angoloUp = 0;
 
 // Oggetti nella scena
 static vector<Mesh> Personaggio, Lampione, Edificio1, Edificio2, Edificio3, Edificio4;
-Mesh Cubo, Piano, Piramide, Centri, Sole, Panchina, Albero, Fontana3D, Palo, Lampada, Piazza;
+Mesh Cubo, Piano, Piramide, Centri, Sole, Panchina, Albero, Fontana3D, Palo, Lampada, Piazza, Navicella;
 Mesh Palazzo, Tetto, Porta, Finestra1, Finestra2;
 Mesh Palazzo2, Porta2, Finestra3, Finestra4, Finestra5;
 Mesh Palazzo3, Porta3, Finestra6, Finestra7;
 Mesh Palazzo4, Tetto2, Porta4, Finestra8;
 Figura Fontana;
+glm::vec4 currentPositionCharacter;
+glm::vec4 currentTargetCharacter;
 
 // Da controllare a cosa serve
 static float quan = 0;
@@ -89,13 +113,13 @@ float lastFrame = 0.0f; // Time of last frame
 static vector<Material> materials;
 static vector<Shader> shaders;
 
-// Luce
-//point_light ext_light;
-point_light light;
-float angolo = 0.0; // Per luce
-
-//Puntatori alle variabili uniformi per l'impostazione dell'illuminazione
-LightShaderUniform light_unif = {};
+vector<std::string> faces{
+	"tegole.jpg",
+	"tegole.jpg",
+	"tegole.jpg",
+	"tegole.jpg",
+	//"tegole.jpg"
+};
 
 unsigned int loadTexture(char const* path)
 {
@@ -147,7 +171,7 @@ void genera_texture(void)
 	// load and generate the texture
 	int widthT, heightT, nrChannels;
 	stbi_set_flip_vertically_on_load(1);
-	stbi_uc* data = stbi_load("muromattoni.jpg", &widthT, &heightT, &nrChannels, 0);
+	stbi_uc* data = stbi_load("muro.jpg", &widthT, &heightT, &nrChannels, 0);
 	if (data)
 	{
 		GLenum format;
@@ -166,17 +190,17 @@ void genera_texture(void)
 	}
 	stbi_image_free(data);
 
-
-	glGenTextures(1, &erba);
+	//luna
+	glGenTextures(1, &luna);
 	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, erba);
+	glBindTexture(GL_TEXTURE_2D, luna);
 	// set the texture wrapping/filtering options (on the currently bound texture object)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	// load and generate the texture
-	data = stbi_load("erba.png", &widthT, &heightT, &nrChannels, 0);
+	data = stbi_load("luna.jpg", &widthT, &heightT, &nrChannels, 0);
 	stbi_set_flip_vertically_on_load(1);
 	if (data)
 	{
@@ -188,15 +212,47 @@ void genera_texture(void)
 
 		glTexImage2D(GL_TEXTURE_2D, 0, format, widthT, heightT, 0, format, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
-		printf("Tutto OK erba \n");
+		printf("Tutto OK luna \n");
 	}
 	else
 	{
-		printf("Errore nel caricare la texture erba\n");
+		printf("Errore nel caricare la texture luna\n");
 	}
 	stbi_image_free(data);
 
 
+}
+
+unsigned int loadCubemap(vector<std::string> faces)
+{
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	int width, height, nrChannels;
+	for (unsigned int i = 0; i < faces.size(); i++)
+	{
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+		if (data)
+		{
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+				0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+			);
+			stbi_image_free(data);
+		}
+		else
+		{
+			std::cout << "Cubemap tex failed to load at path: " << faces[i] << std::endl;
+			stbi_image_free(data);
+		}
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
 }
 
 void INIT_SHADER(void)
@@ -216,16 +272,38 @@ void INIT_SHADER(void)
 
 	programId_text = ShaderMaker::createProgram(vertexShader, fragmentShader);
 	*/
-
 	vertexShader = (char*)"vertexShader_C.glsl";
 	fragmentShader = (char*)"fragmentShader_Sfondo.glsl";
 
 	programId_Sfondo = ShaderMaker::createProgram(vertexShader, fragmentShader);
-
+	
 	vertexShader = (char*)"vertexShader_riflessione.glsl";
 	fragmentShader = (char*)"fragmentShader_riflessione.glsl";
 
 	programIdr = ShaderMaker::createProgram(vertexShader, fragmentShader);
+
+	//Lights initialization and activation
+	glLightfv(GL_LIGHT1, GL_AMBIENT, light_ambient);
+	glLightfv(GL_LIGHT1, GL_DIFFUSE, light_diffuse);
+	glLightfv(GL_LIGHT1, GL_SPECULAR, light_specular);
+	glLightfv(GL_LIGHT1, GL_POSITION, pos1);
+	glEnable(GL_LIGHT1);
+	glLightfv(GL_LIGHT2, GL_AMBIENT, light_ambient);
+	glLightfv(GL_LIGHT2, GL_DIFFUSE, light_diffuse);
+	glLightfv(GL_LIGHT2, GL_SPECULAR, light_specular);
+	glLightfv(GL_LIGHT2, GL_POSITION, pos2);
+	glEnable(GL_LIGHT2);
+	glLightfv(GL_LIGHT3, GL_AMBIENT, light_ambient);
+	glLightfv(GL_LIGHT3, GL_DIFFUSE, light_diffuse);
+	glLightfv(GL_LIGHT3, GL_SPECULAR, light_specular);
+	glLightfv(GL_LIGHT3, GL_POSITION, pos3);
+	glEnable(GL_LIGHT3);
+	glLightfv(GL_LIGHT4, GL_AMBIENT, light_ambient);
+	glLightfv(GL_LIGHT4, GL_DIFFUSE, light_diffuse);
+	glLightfv(GL_LIGHT4, GL_SPECULAR, light_specular);
+	glLightfv(GL_LIGHT4, GL_POSITION, pos4);
+	glEnable(GL_LIGHT4);
+	glEnable(GL_LIGHTING);
 
 }
 
@@ -289,12 +367,12 @@ void INIT_VAO() {
 
 	legno = loadTexture("legno.jpg");
 	pavimento_piazza = loadTexture("piazza.jpg");
-	muro = loadTexture("muromattoni.jpg");
-	foglie = loadTexture("foglie.jpg");
-	erba = loadTexture("erba.jpg");
+	muro = loadTexture("muro.jpg");
+	foglie = loadTexture("alien.jpg");
+	luna = loadTexture("luna.jpg");
 	vetro = loadTexture("vetro.jpg");
 	mosaico = loadTexture("mosaico.jpg");
-	tegole = loadTexture("tegole.jpg");
+	tegole = loadCubemap(faces);
 
 	Mesh Sfondo;
 	string ObjDir = "object/";
@@ -317,7 +395,7 @@ void INIT_VAO() {
 	Scena.push_back(Sfondo);
 
 	//TERRENO
-	crea_piano(&Piano, vec4(50.0/255.0, 205.0/255.0, 50.0/255.0, 1.0));
+	crea_piano(&Piano, vec4(1.0, 1.0, 1.0, 1.0));
 	crea_VAO_Vector(&Piano);
 	Piano.nome = "Piano Terra";
 	Piano.Model = mat4(1.0);
@@ -326,11 +404,10 @@ void INIT_VAO() {
 	Piano.Model = scale(Piano.Model, vec3(1000.0f, 1.0f, 1000.0f));
 	raggi.push_back(1.5);
 	Piano.sceltaVS = 0;
-	Piano.material = MaterialType::EMERALD;
 	Scena.push_back(Piano);
 
 	//PIAZZA
-	crea_piano(&Piazza, vec4(1.0, 1.0, 1.0, 1.0));
+	crea_piano(&Piazza, vec4(1.0, 105.0/255.0, 180.0/255.0, 1.0));
 	crea_VAO_Vector(&Piazza);
 	Piazza.nome = "piazza";
 	Piazza.Model = mat4(1.0);
@@ -344,17 +421,21 @@ void INIT_VAO() {
 
 	//SOLE
 	crea_sfera(&Sole, vec4(1.0, 216.0 / 255.0, 0.0, 1.0));
-	Sole.texCoords.clear();
 	crea_VAO_Vector(&Sole);
+	Sole.posx = est;
+	Sole.posy = 0.0;
+	Sole.posz = 0.0;
 	Sole.Model = mat4(1.0);
-	Sole.Model = translate(Sole.Model, vec3(0.0, 21.0, 0.0));
+	Sole.Model = translate(Sole.Model, vec3(Sole.posx, Sole.posy, Sole.posz));
 	Sole.Model = scale(Sole.Model, vec3(2.5, 2.5, 2.5));
 	Sole.nome = "sole";
 	centri.push_back(vec3(0.0, 2.0, 0.0));
 	raggi.push_back(0.5);
 	Sole.sceltaVS = 0;
-	Sole.material = MaterialType::YELLOW;
+	Sole.material = MaterialType::RED_PLASTIC;
 	Scena.push_back(Sole);
+
+
 
 	//PANCHINA	
 	obj = loadOBJ(ObjDir + "panchina.obj", Panchina);
@@ -370,7 +451,7 @@ void INIT_VAO() {
 	Panchina.sceltaVS = 0;
 	Panchina.material = MaterialType::SLATE;
 	Scena.push_back(Panchina);
-	Panchina.Model = translate(Panchina.Model, vec3(-5.0, -1.0, -5.0));
+	Panchina.Model = translate(Panchina.Model, vec3(-7.0, -1.0, 10.0));
 	Panchina.Model = scale(Panchina.Model, vec3(0.5, 0.5, 0.5));
 	centri.push_back(vec3(Panchina.Model * vec4(0.0, 0.0, 0.0, 1.0)));
 	raggi.push_back(1.0);
@@ -378,21 +459,31 @@ void INIT_VAO() {
 	Panchina.material = MaterialType::SLATE;
 	Scena.push_back(Panchina);
 
+	//NAVICELLA
+	obj = loadOBJ(ObjDir + "navicella.obj", Navicella);
+	for (int i = 0; i < Navicella.colori.size(); i++) {
+		Navicella.colori[i] = vec4(30.0/255.0, 144.0 / 255.0, 1.0, 1.0);
+	}
+	crea_VAO_Vector(&Navicella);
+	Navicella.nome = "navicella";
+	Navicella.Model = mat4(1.0);
+	Navicella.Model = translate(Navicella.Model, vec3(-40.0, 0.0, 10.0));
+	Navicella.Model = scale(Navicella.Model, vec3(2.0, 2.0, 2.0));
+	centri.push_back(vec3(Navicella.Model * vec4(0.0, 0.0, 0.0, 1.0)));
+	raggi.push_back(1.0);
+	Navicella.sceltaVS = 0;
+	Navicella.material = MaterialType::EMERALD;
+	Scena.push_back(Navicella);
+
 	//ALBERO
-	obj = loadOBJ(ObjDir + "Tree.obj", Albero);
+	obj = loadOBJ(ObjDir + "AlienTree.obj", Albero);
 	for (int i = 0; i < Albero.colori.size(); i++) {
 		Albero.colori[i] = vec4(0.0, 100.0/255.0, 0.0, 1.0);
 	}
 	crea_VAO_Vector(&Albero);
 	Albero.nome = "albero";
-	Albero.Model = mat4(1.0);
-	Albero.Model = translate(Albero.Model, vec3(-10.0, -1.0, -15.0));
-	Albero.Model = rotate(Albero.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
-	Albero.Model = scale(Albero.Model, vec3(2.0, 2.0, 2.0));
 	centri.push_back(vec3(Albero.Model * vec4(0.0, 0.0, 0.0, 1.0)));
 	raggi.push_back(1.0);
-	Albero.sceltaVS = 0;
-	Albero.material = MaterialType::BRASS;
 	Scena.push_back(Albero);
 
 	//LAMPIONE
@@ -400,32 +491,22 @@ void INIT_VAO() {
 	crea_cilindro(&Palo, vec4(0.5, 0.5, 0.5, 1.0));
 	Palo.texCoords.clear();
 	crea_VAO_Vector(&Palo);
-	Palo.Model = mat4(1.0);
-	Palo.Model = translate(Palo.Model, vec3(-4.0, -1.0, 7.0));
-	Palo.Model = scale(Palo.Model, vec3(0.1, 6.0, 0.1));
 	Palo.nome = "palo";
 	centri.push_back(vec3(0.0, 2.0, 0.0));
 	raggi.push_back(0.5);
-	Palo.sceltaVS = 0;
-	Palo.material = MaterialType::RED_PLASTIC;
 	Lampione.push_back(Palo);
 	//Lampada
 	crea_sfera(&Lampada, vec4(1.0, 1.0, 1.0, 1.0));
 	crea_VAO_Vector(&Lampada);
-	Lampada.Model = mat4(1.0);
-	Lampada.Model = translate(Lampada.Model, vec3(-4.0, 5.0, 7.0));
-	Lampada.Model = scale(Lampada.Model, vec3(0.5, 0.5, 0.5));
 	Lampada.nome = "lampada";
 	centri.push_back(vec3(0.0, 2.0, 0.0));
 	raggi.push_back(0.5);
-	Lampada.sceltaVS = 0;
-	Lampada.material = MaterialType::RED_PLASTIC;
 	Lampione.push_back(Lampada);
 
 	//Edifici
 	//1
 	//palazzo
-	crea_cubo(&Palazzo, vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
+	crea_cubo(&Palazzo, vec4(222.0/255.0, 184.0/255.0, 135.0/255.0, 1.0), vec4(222.0 / 255.0, 184.0 / 255.0, 135.0 / 255.0, 1.0));
 	Palazzo.texCoords.clear();
 	for (int i = 0; i < Palazzo.vertici.size(); i++) {
 		Palazzo.texCoords.push_back(Palazzo.vertici[i]);
@@ -497,7 +578,7 @@ void INIT_VAO() {
 
 	//2
 	//palazzo
-	crea_cubo(&Palazzo2, vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
+	crea_cubo(&Palazzo2, vec4(222.0 / 255.0, 184.0 / 255.0, 135.0 / 255.0, 1.0), vec4(222.0 / 255.0, 184.0 / 255.0, 135.0 / 255.0, 1.0));
 	Palazzo2.texCoords.clear();
 	for (int i = 0; i < Palazzo2.vertici.size(); i++) {
 		Palazzo2.texCoords.push_back(Palazzo2.vertici[i]);
@@ -566,7 +647,7 @@ void INIT_VAO() {
 	Edificio2.push_back(Finestra5);
 	//3
 	//palazzo
-	crea_cubo(&Palazzo3, vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
+	crea_cubo(&Palazzo3, vec4(222.0 / 255.0, 184.0 / 255.0, 135.0 / 255.0, 1.0), vec4(222.0 / 255.0, 184.0 / 255.0, 135.0 / 255.0, 1.0));
 	Palazzo3.texCoords.clear();
 	for (int i = 0; i < Palazzo3.vertici.size(); i++) {
 		Palazzo3.texCoords.push_back(Palazzo3.vertici[i]);
@@ -622,7 +703,7 @@ void INIT_VAO() {
 	Edificio3.push_back(Finestra7);
 	//4
 	//palazzo
-	crea_cubo(&Palazzo4, vec4(1.0, 1.0, 1.0, 1.0), vec4(1.0, 1.0, 1.0, 1.0));
+	crea_cubo(&Palazzo4, vec4(222.0 / 255.0, 184.0 / 255.0, 135.0 / 255.0, 1.0), vec4(222.0 / 255.0, 184.0 / 255.0, 135.0 / 255.0, 1.0));
 	Palazzo4.texCoords.clear();
 	for (int i = 0; i < Palazzo4.vertici.size(); i++) {
 		Palazzo4.texCoords.push_back(Palazzo4.vertici[i]);
@@ -678,34 +759,28 @@ void INIT_VAO() {
 	Finestra8.sceltaVS = 0;
 	Finestra8.material = MaterialType::EMERALD;
 	Edificio4.push_back(Finestra8);
-
-	//EDIFICIO
-	/*obj = loadOBJ(ObjDir + "Building.obj", Edificio);
-	crea_VAO_Vector(&Edificio);
-	Edificio.nome = "edificio";
-	Edificio.Model = mat4(1.0);
-	Edificio.Model = rotate(Edificio.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
-	centri.push_back(vec3(Edificio.Model * vec4(0.0, 0.0, 0.0, 1.0)));
-	raggi.push_back(1.0);
-	Edificio.sceltaVS = 0;
-	Edificio.material = MaterialType::SLATE;
-	Scena.push_back(Edificio);
-	Edificio.Model = translate(Edificio.Model, vec3(-6.0, 0.0, 2.0));
-	Edificio.Model = rotate(Edificio.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
-	centri.push_back(vec3(Edificio.Model * vec4(0.0, 0.0, 0.0, 1.0)));
-	raggi.push_back(1.0);
-	Edificio.sceltaVS = 0;
-	Edificio.material = MaterialType::SLATE;
-	Scena.push_back(Edificio);*/
 	
 	//FONTANA
 	costruisci_fontana(vec4(0.0, 0.0, 1.0, 1.0) , vec4(0.5, 0.5, 0.5, 1.0), &Fontana);
+	rivoluzione(Fontana, &Fontana3D);
+	Fontana3D.texCoords.clear();
+	for (int i = 0; i < Fontana3D.vertici.size(); i++) {
+		Fontana3D.texCoords.push_back(Fontana3D.vertici[i]);
+	}
+	crea_VAO_Vector(&Fontana3D);
+	Fontana3D.nome = "fontana";
+	Fontana3D.Model = mat4(1.0);
+	Fontana3D.Model = translate(Fontana3D.Model, vec3(0.0, 1.0, 1.0));
+	Fontana3D.Model = scale(Fontana3D.Model, vec3(1.3, 1.3, 1.3));
+	Fontana3D.sceltaVS = 0;
+	Fontana3D.material = MaterialType::EMERALD;
+	Scena.push_back(Fontana3D);
 
 	//COSTRZIONE DEL PERSONAGGIO
 	Mesh Testa, Corpo, BraccioSx, BraccioDx, GambaSx, GambaDx;
 
 	//TESTA
-	crea_sfera(&Testa, vec4(1.0, 1.0, 0.0, 1.0));
+	crea_sfera(&Testa, vec4(0.0, 0.5, 1.0, 1.0));
 	Testa.texCoords.clear();
 	crea_VAO_Vector(&Testa);
 	Testa.Model = mat4(1.0);
@@ -735,12 +810,12 @@ void INIT_VAO() {
 	crea_VAO_Vector(&BraccioSx);
 	BraccioSx.Model = mat4(1.0);
 	BraccioSx.Model = translate(BraccioSx.Model, vec3(-1.0, 0.0, 0.0));
-	BraccioSx.Model = rotate(BraccioSx.Model, radians(65.0f), vec3(0.0, 0.0, 1.0));
+	BraccioSx.Model = rotate(BraccioSx.Model, radians(-65.0f), vec3(0.0, 0.0, 1.0));
 	BraccioSx.Model = scale(BraccioSx.Model, vec3(1, 0.25, 0.25));
 	BraccioSx.nome = "BraccioSinistro";
 	centri.push_back(vec3(-1.0, 0.0, 0.0));
 	raggi.push_back(0.5);
-	Personaggio.push_back(BraccioSx);
+	Personaggio.push_back(BraccioSx); 
 
 	//BRACCIO DESTRO
 	crea_sfera(&BraccioDx, vec4(1.0, 1.0, 1.0, 1.0));
@@ -748,19 +823,35 @@ void INIT_VAO() {
 	crea_VAO_Vector(&BraccioDx);
 	BraccioDx.Model = mat4(1.0);
 	BraccioDx.Model = translate(BraccioDx.Model, vec3(1.0, 0.0, 0.0));
-	BraccioDx.Model = rotate(BraccioDx.Model, radians(-65.0f), vec3(0.0, 0.0, 1.0));
+	BraccioDx.Model = rotate(BraccioDx.Model, radians(65.0f), vec3(0.0, 0.0, 1.0));
 	BraccioDx.Model = scale(BraccioDx.Model, vec3(1, 0.25, 0.25));
 	BraccioDx.nome = "BraccioDestro";
 	centri.push_back(vec3(1.0, 0.0, 0.0));
 	raggi.push_back(0.5);
 	Personaggio.push_back(BraccioDx);
-
+	//Assegno le posizioni iniziali dell'omino
+	for (int i = 0; i < Personaggio.size(); i++) {
+		Personaggio[i].posx = 0.0;
+		Personaggio[i].posy = 0.0;
+		Personaggio[i].posz = 10.0;
+	}
+	currentPositionCharacter = { Personaggio[0].posx, 1.70, Personaggio[0].posz, 0.0 };
+	currentTargetCharacter = { Personaggio[0].posx, 1.70, Personaggio[0].posz  + 2.0, 0.0 };
 }
 
 void INIT_Illuminazione() {
-	light.position = {0.0,7.0,0.0};
-	light.color = { 1.0,1.0,1.0 };
-	light.power = 1.f;
+	//luce sole
+
+	lights[0].position = { 0.0, 21.0, 0.0 };
+	lights[0].color = { 1.0, 1.0, 1.0 };
+	lights[0].power = 1.5f;
+	
+	//luce lampioni
+	for (int i = 1; i < lightPositions.size(); i++) {
+		lights[i].position = lightPositions[i];
+		lights[i].color = { 1.0, 1.0, 1.0 };
+		lights[i].power = .7f;
+	}
 
 	//Setup dei materiali
 	// Materials setup
@@ -806,6 +897,7 @@ void INIT_Illuminazione() {
 	materials[MaterialType::MARRONE].diffuse = marrone_diffuse;
 	materials[MaterialType::MARRONE].specular = marrone_specular;
 	materials[MaterialType::MARRONE].shininess = marrone_shininess;
+
 	materials[MaterialType::NO_MATERIAL].name = "NO_MATERIAL";
 	materials[MaterialType::NO_MATERIAL].ambient = glm::vec3(1, 1, 1);
 	materials[MaterialType::NO_MATERIAL].diffuse = glm::vec3(0, 0, 0);
@@ -833,9 +925,7 @@ void INIT_CAMERA_PROJECTION()
 	ViewSetup.position = glm::vec4(0.0, 0.5, 25.0, 0.0);
 	ViewSetup.target = glm::vec4(0.0, 0.0, 0.0, 0.0);
 	ViewSetup.direction = ViewSetup.target - ViewSetup.position;
-	ViewSetup.upVector = glm::vec4(0.0, 1.0, 0.0, 0.0);
-
-	//Imposto la proiezione prospettica
+	ViewSetup.upVector = glm::vec4(0.0, 1.0, 0.0, 0.0); //Imposto la proiezione prospettica
 	PerspectiveSetup = {};
 	PerspectiveSetup.aspect = (GLfloat)width / (GLfloat)height;
 	PerspectiveSetup.fovY = 45.0f;
@@ -845,98 +935,106 @@ void INIT_CAMERA_PROJECTION()
 
 //--------------MOVIMENTO CAMERA ------------------
 void moveCameraLeft(int vistaCorrente) {
-	if (vistaCorrente == 1) {
-		glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));   //direzione perpendicolare al piano individuato da direction e upvector
+	if (vistaCorrente == 1) { //Standard
+		glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector)); //direzione perpendicolare al piano individuato da direction e upvector
 		ViewSetup.position -= glm::vec4(direzione_scorrimento, .0) * cameraSpeed;
 		ViewSetup.target = ViewSetup.position + ViewSetup.direction * cameraSpeed;
 	}
-	else if (vistaCorrente == 2) {
-		//Ti sposti in derminati modi
-	} 
-	else {
-		//Ti sposti in derminati modi
+	else if (vistaCorrente == 2) { // Personaggio
+		glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));
+		ViewSetup.position -= glm::vec4(direzione_scorrimento.x, 0.0, direzione_scorrimento.z, .0) * cameraSpeed;
+		ViewSetup.target += glm::vec4(ViewSetup.direction.x, 0.0, ViewSetup.direction.z, 0.0);
+	}
+	else { //Alto
 		ViewSetup.direction = vec4(-1.0, 0.0, 0.0, 0.0);
 		ViewSetup.position += ViewSetup.direction * cameraSpeed;
 		ViewSetup.target += ViewSetup.direction;
 	}
 }
-
 void moveCameraRight(int vistaCorrente) {
-	if (vistaCorrente == 1) {
+	if (vistaCorrente == 1) { //Standard
 		glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));
-		ViewSetup.position += glm::vec4(direzione_scorrimento, .0) * cameraSpeed; //Questo potrebbe essere il pezzo fondamentale che mi serve
-		ViewSetup.target = ViewSetup.position + ViewSetup.direction; // questo dovrebbe essere a dove si sta puntando invece
+		ViewSetup.position += glm::vec4(direzione_scorrimento, .0) * cameraSpeed;
+		ViewSetup.target = ViewSetup.position + ViewSetup.direction;
 	}
-	else if (vistaCorrente == 2) {
-		//Ti sposti in derminati modi (Da valutare, prima effettuare il cambio della scena cioe implementare il riposizionamento)
-		// Collegare prima l'omino e poi ancorargli la camera, bloccare le direzioni impostate dal mouse (l'altezza non cambia, si va solo avanti,indietro,destra,sinistra)
+	else if (vistaCorrente == 2) { // Personaggio
+		glm::vec3 direzione_scorrimento = glm::cross(vec3(ViewSetup.direction), glm::vec3(ViewSetup.upVector));
+		ViewSetup.position += glm::vec4(direzione_scorrimento.x, 0.0, direzione_scorrimento.z, .0) * cameraSpeed;
+		ViewSetup.target += glm::vec4(ViewSetup.direction.x, 0.0, ViewSetup.direction.z, 0.0);
 	}
-	else {
-		//Ti sposti in derminati modi
+	else { //Alto
 		ViewSetup.direction = vec4(1.0, 0.0, 0.0, 0.0);
-		ViewSetup.position += ViewSetup.direction * cameraSpeed; 
+		ViewSetup.position += ViewSetup.direction * cameraSpeed;
 		ViewSetup.target += ViewSetup.direction;
 	}
 }
-
 void moveCameraForward(int vistaCorrente) {
-	if (vistaCorrente == 1) {
+	if (vistaCorrente == 1) { //Standard
 		ViewSetup.position += ViewSetup.direction * cameraSpeed;
 		ViewSetup.target = ViewSetup.position + ViewSetup.direction;
 	}
-	else if (vistaCorrente == 2) {
-		//Ti sposti in derminati modi
+	else if (vistaCorrente == 2) { // Personaggio
+		ViewSetup.position += glm::vec4(ViewSetup.direction.x, 0.0, ViewSetup.direction.z, .0) * cameraSpeed;
+		ViewSetup.target = ViewSetup.position + glm::vec4(ViewSetup.direction.x, 0.0, ViewSetup.direction.z, 0.0);
 	}
-	else {
+	else { //Alto
 		ViewSetup.direction = vec4(0.0, 0.0, -1.0, 0.0);
 		ViewSetup.position += ViewSetup.direction * cameraSpeed;
 		ViewSetup.target += ViewSetup.direction;
 	}
 }
-
 void moveCameraBack(int vistaCorrente) {
-	if (vistaCorrente == 1) {
+	if (vistaCorrente == 1) { //Standard
 		ViewSetup.position -= ViewSetup.direction * cameraSpeed;
 		ViewSetup.target = ViewSetup.position + ViewSetup.direction;
 	}
-	else if (vistaCorrente == 2) {
-		//Ti sposti in derminati modi
+	else if (vistaCorrente == 2) { //Personaggio
+		ViewSetup.position -= glm::vec4(ViewSetup.direction.x, 0.0, ViewSetup.direction.z, .0) * cameraSpeed;
+		ViewSetup.target = ViewSetup.position + glm::vec4(ViewSetup.direction.x, 0.0, ViewSetup.direction.z, 0.0);
 	}
-	else {
+	else { //Alto
 		ViewSetup.direction = vec4(0.0, 0.0, 1.0, 0.0);
 		ViewSetup.position += ViewSetup.direction * cameraSpeed;
 		ViewSetup.target += ViewSetup.direction;
 	}
 }
-
 void zoomIn() { // Abbassarsi lungo l'asse y
 	ViewSetup.direction = vec4(0.0, 1.0, 0.0, 0.0);
 	ViewSetup.position += ViewSetup.direction * cameraSpeed;
 	ViewSetup.target += ViewSetup.direction;
 }
-
 void zoomOut() { // Alzarsi lungo l'asse y
 	ViewSetup.direction = vec4(0.0, -1.0, 0.0, 0.0);
 	ViewSetup.position += ViewSetup.direction * cameraSpeed;
 	ViewSetup.target += ViewSetup.direction;
 }
-
 void cambioScena(int vistaCorrente) {
 	/* In teoria sarà necessaio cambiare automaticamente la scena passando da fissa a mobile*/
 	if (vistaCorrente == 1) {
 		vistaCamera = 2;
-		//Implementare il cambio fotocamera (spostarla)
+		//Ancoro la camera al personaggio
+		ViewSetup.position = currentPositionCharacter;
+		ViewSetup.target = currentTargetCharacter;
 	}
 	else if (vistaCorrente == 2) {
+		//Salvo la posizione corrente del personaggio
+		currentPositionCharacter = ViewSetup.position;
+		currentTargetCharacter = ViewSetup.target;
 		vistaCamera = 3;
+		//Posiziono la telecamera in alto
 		ViewSetup.position = glm::vec4(0.0, 30, 25.0, 0.0);
 		ViewSetup.target = glm::vec4(0.0, 0.0, 0.0, 0.0);
 	}
 	else {
 		vistaCamera = 1;
+		//Riposiziono la camera nella posizione e modalità iniziale
+		ViewSetup.position = glm::vec4(0.0, 0.5, 25.0, 0.0);
+		ViewSetup.target = glm::vec4(0.0, 0.0, 0.0, 0.0);
 	}
 }
 //--------------FINE MOVIMENTO CAMERA ------------------
+
+
 void modifyModelMatrix(glm::vec3 translation_vector, glm::vec3 rotation_vector, GLfloat angle, GLfloat scale_factor)
 {
 	//ricordare che mat4(1) costruisce una matrice identità di ordine 4
@@ -990,9 +1088,11 @@ void drawScene(void)
 	float time = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
 
 	//Definizione colore luce, posizione ed intensita'
-	glUniform3f(light_unif.light_position_pointer, light.position.x + 50 * cos(radians(angolo)), light.position.y, light.position.z + 50 * sin(radians(angolo)));
-	glUniform3f(light_unif.light_color_pointer, light.color.r, light.color.g, light.color.b);
-	glUniform1f(light_unif.light_power_pointer, light.power);
+	for (int i = 0; i < 5; i++) {
+		glUniform3f(light_unif[i].light_position_pointer, lights[i].position.x + 50 * cos(radians(angolo)), lights[i].position.y, lights[i].position.z + 50 * sin(radians(angolo)));
+		glUniform3f(light_unif[i].light_color_pointer, lights[i].color.r, lights[i].color.g, lights[i].color.b);
+		glUniform1f(light_unif[i].light_power_pointer, lights[i].power);
+	}
 
 	//Disegno Sfondo: uso il program shder per lo sfondo
 	glUseProgram(programId_Sfondo);
@@ -1017,11 +1117,7 @@ void drawScene(void)
 	//Disegno piano terra
 	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[1].Model));
 	glUniform1i(lscelta, Scena[1].sceltaVS);
-	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[1].material].ambient));
-	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[1].material].diffuse));
-	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[1].material].specular));
-	glUniform1f(light_unif.material_shininess, materials[Scena[1].material].shininess);
-	glBindTexture(GL_TEXTURE_2D, erba);
+	glBindTexture(GL_TEXTURE_2D, luna);
 	glBindVertexArray(Scena[1].VAO); 
 	glDrawElements(GL_TRIANGLES, (Scena[1].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
@@ -1029,109 +1125,152 @@ void drawScene(void)
 	//Disegno piazza
 	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[2].Model));
 	glUniform1i(lscelta, Scena[2].sceltaVS);
-	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[2].material].ambient));
-	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[2].material].diffuse));
-	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[2].material].specular));
-	glUniform1f(light_unif.material_shininess, materials[Scena[2].material].shininess);
 	glBindTexture(GL_TEXTURE_2D, pavimento_piazza);
 	glBindVertexArray(Scena[2].VAO);
 	glDrawElements(GL_TRIANGLES, (Scena[2].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
 	//Disegno Sole
-	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[3].Model));
 	glUniform1i(lscelta, Scena[3].sceltaVS);
-	glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[3].material].ambient));
-	glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[3].material].diffuse));
-	glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[3].material].specular));
-	glUniform1f(light_unif.material_shininess, materials[Scena[3].material].shininess);
+	mat4 Model = mat4(1.0);
+	Model = translate(Model, vec3(Scena[3].posx, Scena[3].posy, Scena[3].posz)) * Scena[3].Model; 
+	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Model));
 	glBindVertexArray(Scena[3].VAO);
 	glDrawElements(GL_TRIANGLES, (Scena[3].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
 	//Disegno oggetti
 	for (int k = 5; k < Scena.size(); k++) {
-		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[k].Model));
-		glUniform1i(lscelta, Scena[k].sceltaVS);
-		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Scena[k].material].ambient));
-		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Scena[k].material].diffuse));
-		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Scena[k].material].specular));
-		glUniform1f(light_unif.material_shininess, materials[Scena[k].material].shininess);
 		if (Scena[k].nome == "panchina") {
 			glBindTexture(GL_TEXTURE_2D, legno);
 		}
-		else if (Scena[k].nome == "albero") {
+		else if (Scena[k].nome == "navicella") {
 			glBindTexture(GL_TEXTURE_2D, foglie);
 		}
+		else if (Scena[k].nome == "fontana") {
+			glUniformMatrix4fv(MatView, 1, GL_FALSE, value_ptr(View));
+			glPointSize(2.0);
+			glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Fontana3D.Model));
+			glBindTexture(GL_TEXTURE_2D, mosaico);
+			glBindVertexArray(Fontana3D.VAO);
+			glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
+		}
+		else if (Scena[k].nome == "albero") {
+			for (int i = 0; i < 7; i++) {
+				Albero.Model = mat4(1.0);
+				Albero.posy = -1;
+				if (i == 0) {
+					Albero.posx = -10.0;
+					Albero.posz = -15.0;
+				}
+				else if (i == 1) {
+					Albero.posx = 10.0;
+					Albero.posz = -15.0;
+				}
+				else if (i == 2) {
+					Albero.posx = 15.0;
+					Albero.posz = -15.0;
+				}
+				else if (i == 3) {
+					Albero.posx = 10.0;
+					Albero.posz = 17.0;
+				}
+				else if (i == 4) {
+					Albero.posx = -10.0;
+					Albero.posz = 17.0;
+				}
+				else if (i == 5) {
+					Albero.posx = -16.0;
+					Albero.posz = 12.0;
+				}
+				else if (i == 6) {
+					Albero.posx = -16.0;
+					Albero.posz = -12.0;
+				}
+				Albero.Model = translate(Albero.Model, vec3(Albero.posx, Albero.posy, Albero.posz));
+				Albero.Model = rotate(Albero.Model, radians(180.0f), vec3(0.0, 1.0, 0.0));
+				Albero.Model = scale(Albero.Model, vec3(0.15, 0.15, 0.15));
+				Albero.sceltaVS = 0;
+				Albero.material = MaterialType::BRASS;
+				glBindTexture(GL_TEXTURE_2D, foglie);
+				glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Albero.Model));
+				glUniform1i(lscelta, Albero.sceltaVS);
+				glBindVertexArray(Albero.VAO);
+				glDrawArrays(GL_TRIANGLES, 0, Albero.vertici.size());
+			}
+		}
+		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Scena[k].Model));
+		glUniform1i(lscelta, Scena[k].sceltaVS);
 		glBindVertexArray(Scena[k].VAO);		
-		glDrawArrays(GL_TRIANGLES, 0, Scena[k].vertici.size());
+		glDrawArrays(GL_TRIANGLES, 0, Scena[k].vertici.size());	
 		glBindVertexArray(0);
 	}
-	//Disegno fontana
-	rivoluzione(Fontana, &Fontana3D);
-	Fontana3D.texCoords.clear();
-	for (int i = 0; i < Fontana3D.vertici.size(); i++) {
-		Fontana3D.texCoords.push_back(Fontana3D.vertici[i]);
-	}
-	crea_VAO_Vector(&Fontana3D);
-	Fontana3D.Model = mat4(1.0);
-	Fontana3D.Model = translate(Fontana3D.Model, vec3(0.0, 1.0, 1.0));
-	Fontana3D.Model = scale(Fontana3D.Model, vec3(1.3, 1.3, 1.3));
-	glUniformMatrix4fv(MatView, 1, GL_FALSE, value_ptr(View));
-	glPointSize(2.0);
-	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Fontana3D.Model));
-	glBindTexture(GL_TEXTURE_2D, mosaico);
-	glBindVertexArray(Fontana3D.VAO);
-	glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
-	glBindVertexArray(0);
-
 	//Disegno Personaggio
 	for (int k = 0; k < Personaggio.size(); k++)
 	{
 		mat4 Model = mat4(1.0);
-
-		if (k == Personaggio.size() - 2)
-		{
-			Model = translate(Model, vec3(-1.0, 0.5, 0.0));
-			Model = rotate(Model, radians(angolo), vec3(0.0, 0.0, 1.0));
-			Model = scale(Model, vec3(1, 0.25, 0.25));
-			Model = translate(mat4(1.0), vec3(posxN, 0.0, posyN)) * Model;
-		}
-		else
-			Model = translate(Model, vec3(posxN, 0.0, posyN)) * Personaggio[k].Model;
-
-
-		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Model));
+		Model = translate(Model, vec3(Personaggio[k].posx, Personaggio[k].posy, Personaggio[k].posz)) * Personaggio[k].Model; glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Model));
 		glBindVertexArray(Personaggio[k].VAO);
 		glDrawElements(GL_TRIANGLES, (Personaggio[k].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
-
 	}
 
 	//Disegno Lampione
-	for (int i = 0; i < Lampione.size(); i++) {
-		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Lampione[i].Model));
-		glUniform1i(lscelta, Lampione[i].sceltaVS);
-		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Lampione[i].material].ambient));
-		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Lampione[i].material].diffuse));
-		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Lampione[i].material].specular));
-		glUniform1f(light_unif.material_shininess, materials[Lampione[i].material].shininess);
-		if (Lampione[i].nome == "lampada") {
-			glBindTexture(GL_TEXTURE_2D, vetro);
+	for (int k = 0; k < 4; k++) {
+		Palo.Model = mat4(1.0);
+		Lampada.Model = mat4(1.0);
+		Palo.posy = -2.0;
+		Lampada.posy = 4.0;
+		if (k == 0) {
+			Palo.posx = -13.0;
+			Palo.posz = 12.0;
+			Lampada.posx = -13.0;
+			Lampada.posz = 12.0;
 		}
-		glBindVertexArray(Lampione[i].VAO);
-		glDrawElements(GL_TRIANGLES, (Lampione[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
-		glBindVertexArray(0);
+		else if (k == 1) {
+			Palo.posx = -13.0;
+			Palo.posz = -12.0;
+			Lampada.posx = -13.0;
+			Lampada.posz = -12.0;
+		}
+		else if (k == 2) {
+			Palo.posx = 13.0;
+			Palo.posz = -12.0;
+			Lampada.posx = 13.0;
+			Lampada.posz = -12.0;
+		}
+		else if (k == 3) {
+			Palo.posx = 13.0;
+			Palo.posz = 12.0;
+			Lampada.posx = 13.0;
+			Lampada.posz = 12.0;
+		}
+		Palo.Model = translate(Palo.Model, vec3(Palo.posx, Palo.posy, Palo.posz));
+		Palo.Model = scale(Palo.Model, vec3(0.1, 6.0, 0.1));
+		Palo.sceltaVS = 0;
+		Palo.material = MaterialType::RED_PLASTIC;
+		Lampada.Model = translate(Lampada.Model, vec3(Lampada.posx, Lampada.posy, Lampada.posz));
+		Lampada.Model = scale(Lampada.Model, vec3(0.5, 0.5, 0.5));
+		Lampada.sceltaVS = 0;
+		Lampada.material = MaterialType::RED_PLASTIC;
+		Lampione[0] = Palo;
+		Lampione[1] = Lampada;
+		for (int i = 0; i < 2; i++) {
+			glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Lampione[i].Model));
+			glUniform1i(lscelta, Lampione[i].sceltaVS);
+			glBindTexture(GL_TEXTURE_2D, vetro);
+			glBindVertexArray(Lampione[i].VAO);
+			glDrawElements(GL_TRIANGLES, (Lampione[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+			glBindVertexArray(0);
+		}
 	}
+	
 	//Disegno case
 	//1
 	for (int i = 0; i < Edificio1.size(); i++) {
 		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Edificio1[i].Model));
 		glUniform1i(lscelta, Edificio1[i].sceltaVS);
-		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Edificio1[i].material].ambient));
-		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Edificio1[i].material].diffuse));
-		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Edificio1[i].material].specular));
-		glUniform1f(light_unif.material_shininess, materials[Edificio1[i].material].shininess);
 		if (Edificio1[i].nome == "palazzo") {
 			glBindTexture(GL_TEXTURE_2D, muro);
 		}
@@ -1139,7 +1278,7 @@ void drawScene(void)
 			glBindTexture(GL_TEXTURE_2D, legno);
 		}
 		else if (Edificio1[i].nome == "tetto") {
-			glBindTexture(GL_TEXTURE_2D, tegole);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, tegole);
 		}
 		else {
 			glBindTexture(GL_TEXTURE_2D, vetro);
@@ -1152,10 +1291,6 @@ void drawScene(void)
 	for (int i = 0; i < Edificio2.size(); i++) {
 		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Edificio2[i].Model));
 		glUniform1i(lscelta, Edificio2[i].sceltaVS);
-		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Edificio2[i].material].ambient));
-		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Edificio2[i].material].diffuse));
-		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Edificio2[i].material].specular));
-		glUniform1f(light_unif.material_shininess, materials[Edificio2[i].material].shininess);
 		if (Edificio2[i].nome == "palazzo2") {
 			glBindTexture(GL_TEXTURE_2D, muro);
 		}
@@ -1173,10 +1308,6 @@ void drawScene(void)
 	for (int i = 0; i < Edificio3.size(); i++) {
 		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Edificio3[i].Model));
 		glUniform1i(lscelta, Edificio3[i].sceltaVS);
-		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Edificio3[i].material].ambient));
-		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Edificio3[i].material].diffuse));
-		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Edificio3[i].material].specular));
-		glUniform1f(light_unif.material_shininess, materials[Edificio3[i].material].shininess);
 		if (Edificio3[i].nome == "palazzo3") {
 			glBindTexture(GL_TEXTURE_2D, muro);
 		}
@@ -1194,10 +1325,6 @@ void drawScene(void)
 	for (int i = 0; i < Edificio4.size(); i++) {
 		glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Edificio4[i].Model));
 		glUniform1i(lscelta, Edificio4[i].sceltaVS);
-		glUniform3fv(light_unif.material_ambient, 1, glm::value_ptr(materials[Edificio4[i].material].ambient));
-		glUniform3fv(light_unif.material_diffuse, 1, glm::value_ptr(materials[Edificio4[i].material].diffuse));
-		glUniform3fv(light_unif.material_specular, 1, glm::value_ptr(materials[Edificio4[i].material].specular));
-		glUniform1f(light_unif.material_shininess, materials[Edificio4[i].material].shininess);
 		if (Edificio4[i].nome == "palazzo4") {
 			glBindTexture(GL_TEXTURE_2D, muro);
 		}
@@ -1205,7 +1332,7 @@ void drawScene(void)
 			glBindTexture(GL_TEXTURE_2D, legno);
 		}
 		else if (Edificio4[i].nome == "tetto2") {
-			glBindTexture(GL_TEXTURE_2D, tegole);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, tegole);
 		}
 		else {
 			glBindTexture(GL_TEXTURE_2D, vetro);
@@ -1214,6 +1341,10 @@ void drawScene(void)
 		glDrawElements(GL_TRIANGLES, (Edificio4[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}
+	/*
+	glEnd();
+	glFlush(); // This force the execution of OpenGL commands
+	*/
 	glutSwapBuffers();
 }
 
@@ -1246,27 +1377,21 @@ void keyboardPressedEvent(unsigned char key, int x, int y) {
 	switch (key)
 	{
 	case 'a':
-		cout << "movimento telecamera sx" << endl;
 		moveCameraLeft(vistaCamera);
 		break;
 	case 'd':
-		cout << "movimento telecamera dx" << endl;
 		moveCameraRight(vistaCamera);
 		break;
 	case 'w':
-		cout << "movimento telecamera su" << endl;
 		moveCameraForward(vistaCamera);
 		break;
 	case 's':
-		cout << "movimento telecamera giu" << endl;
 		moveCameraBack(vistaCamera);
 		break;
 	case 'q':
-		cout << "zoom-in" << endl;
 		zoomIn();
 		break;
 	case 'e':
-		cout << "zoom-out" << endl;
 		zoomOut();
 		break;
 	case 'v':
@@ -1464,38 +1589,33 @@ void mouse(int button, int state, int x, int y) {
 
 void my_passive_mouse(int xpos, int ypos)
 {
-
-	float alfa = 0.05; //serve ridimensionare l'offset tra due posizioni successive del mosue
+	float alfa = 0.16; //serve ridimensionare l'offset tra due posizioni successive del mosue
 	ypos = height - ypos;
 	if (firstMouse)
 	{
 		lastX = xpos;
 		lastY = ypos;
 		firstMouse = false;
-	}
-
-	float xoffset = xpos - lastX;
+	} float xoffset = xpos - lastX;
 	float yoffset = ypos - lastY;
 	lastX = xpos;
-	lastY = ypos;
-
-	xoffset *= alfa;
+	lastY = ypos; xoffset *= alfa;
 	yoffset *= alfa;
-	yaw_ += xoffset;  //aggiorno l'angolo yaw
-	pitch_ += yoffset;  // aggiorno l'angolo Pitch
-
-	// Facciamo si' che l'angolo di Picht vari tra -90 e 90.
-	if (pitch_ > 89.0f)
-		pitch_ = 89.0f;
-	if (pitch_ < -89.0f)
-		pitch_ = -89.0f;
-
-	glm::vec3 front;
+	yaw_ += xoffset; //aggiorno l'angolo yaw
+	pitch_ += yoffset; // aggiorno l'angolo Pitch // Facciamo si' che l'angolo di Picht vari tra -360 e 360.
+	if (pitch_ > 359.0f)
+		pitch_ = 359.0f;
+	if (pitch_ < -359.0f)
+		pitch_ = -359.0f; glm::vec3 front;
 	front.x = cos(glm::radians(yaw_)) * cos(glm::radians(pitch_));
 	front.y = sin(glm::radians(pitch_));
 	front.z = sin(glm::radians(yaw_)) * cos(glm::radians(pitch_));
 	// Movimento della camera in base al movimento del mouse
-	if(vistaCamera == 1){
+	if (vistaCamera == 1) {
+		ViewSetup.direction = vec4(normalize(front), 0.0);
+		ViewSetup.target = ViewSetup.position + ViewSetup.direction;
+	}
+	else if (vistaCamera == 2) {
 		ViewSetup.direction = vec4(normalize(front), 0.0);
 		ViewSetup.target = ViewSetup.position + ViewSetup.direction;
 	}
@@ -1503,26 +1623,77 @@ void my_passive_mouse(int xpos, int ypos)
 	glutPostRedisplay();
 }
 
+void crescitaGiorno() {
+	if (Scena[3].posy >= nord && Scena[3].posx >= 0.0) {
+		mattina = false;
+		pomeriggio = true;
+	}
+	else {
+		Scena[3].posx += fattoreVelocita;
+		Scena[3].posy += fattoreVelocita;
+	}
+}
+void decrescitaGiorno() {
+	if (Scena[3].posx >= ovest && Scena[3].posy <= 0.0) {
+		pomeriggio = false;
+		sera = true;
+	}
+	else {
+		Scena[3].posx += fattoreVelocita;
+		Scena[3].posy -= fattoreVelocita;
+	}
+}void decrescitaNotte() {
+	if (Scena[3].posy <= sud && Scena[3].posx <= 0.0) {
+		sera = false;
+		notte = true;
+	}
+	else {
+		Scena[3].posx -= fattoreVelocita;
+		Scena[3].posy -= fattoreVelocita;
+	}
+}void crescitaNotte() {
+	if (Scena[3].posx <= est && Scena[3].posy >= 0.0) {
+		notte = false;
+		mattina = true;
+	}
+	else {
+		Scena[3].posx -= fattoreVelocita;
+		Scena[3].posy += fattoreVelocita;
+	}
+}
+
 void update(int a)
 {
-	/*
-	angoloUp += 0.05;
-
-
+	if (vistaCamera == 2) {
+		//Aggiorno il personaggio
+		for (int i = 0; i < Personaggio.size(); i++) {
+			Personaggio[i].posx = ViewSetup.position.x;
+			Personaggio[i].posz = ViewSetup.position.z + 1;
+		}
+	} if (mattina) {
+		crescitaGiorno();
+	}
+	else if (pomeriggio) {
+		decrescitaGiorno();
+	}
+	else if (sera) {
+		decrescitaNotte();
+	}
+	else if (notte) {
+		crescitaNotte();
+	} angoloUp += 0.05;
 	if (angoloUp >= 0 && angoloUp < 25.0)
 		angoloUp += 0.05;
 	if (angoloUp > 25)
-		angoloUp = 0;
-
-	glutTimerFunc(10, update, 0);
-
+		angoloUp = 0; glutTimerFunc(10, update, 0);
+	/*
 	glutSetWindow(idfi);
 	glutPostRedisplay();
-	
+	*/
 	glutSetWindow(idPrincipale);
 	glutPostRedisplay();
-	*/
 }
+
 
 int main(int argc, char* argv[])
 {
@@ -1601,15 +1772,18 @@ int main(int argc, char* argv[])
 
 	lscelta = glGetUniformLocation(programId, "sceltaVs");
 
-	light_unif.light_position_pointer = glGetUniformLocation(programId, "light.position");
-	light_unif.light_color_pointer = glGetUniformLocation(programId, "light.color");
-	light_unif.light_power_pointer = glGetUniformLocation(programId, "light.power");
-	light_unif.material_ambient = glGetUniformLocation(programId, "material.ambient");
-	light_unif.material_diffuse = glGetUniformLocation(programId, "material.diffuse");
-	light_unif.material_specular = glGetUniformLocation(programId, "material.specular");
-	light_unif.material_shininess = glGetUniformLocation(programId, "material.shininess");
-
-
+	for (int i = 0; i < 5; i++) {
+		string positionStr = "lights[" + to_string(i) + "].position";
+		light_unif[i].light_position_pointer = glGetUniformLocation(programId, positionStr.c_str());
+		string colorStr = "lights[" + to_string(i) + "].color";
+		light_unif[i].light_color_pointer = glGetUniformLocation(programId, colorStr.c_str());
+		string powerStr = "lights[" + to_string(i) + "].power";
+		light_unif[i].light_power_pointer = glGetUniformLocation(programId, powerStr.c_str());
+		light_unif[i].material_ambient = glGetUniformLocation(programId, "material.ambient");
+		light_unif[i].material_diffuse = glGetUniformLocation(programId, "material.diffuse");
+		light_unif[i].material_specular = glGetUniformLocation(programId, "material.specular");
+		light_unif[i].material_shininess = glGetUniformLocation(programId, "material.shininess");
+	}
 	loc_res = glGetUniformLocation(programId_Sfondo, "resolution");
 
 	loc_mouse = glGetUniformLocation(programId_Sfondo, "mouse");
