@@ -1153,7 +1153,7 @@ void drawScene(void)
 			glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Fontana3D.Model));
 			glBindTexture(GL_TEXTURE_2D, mosaico);
 			glBindVertexArray(Fontana3D.VAO);
-			glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+			//glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 			glBindVertexArray(0);
 		}
 		else if (Scena[k].nome == "albero") {
