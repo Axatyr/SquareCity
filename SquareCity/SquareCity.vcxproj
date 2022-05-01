@@ -154,9 +154,7 @@
     <None Include="vertexShader_riflessione.glsl" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Camera.h" />
     <ClInclude Include="Geometria.h" />
-    <ClInclude Include="GestioneEventi.h" />
     <ClInclude Include="Hermitte.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -171,9 +169,7 @@
     <ClInclude Include="Strutture.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="geometria.cpp" />
-    <ClCompile Include="GestioneEventi.cpp" />
     <ClCompile Include="Hermitte.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

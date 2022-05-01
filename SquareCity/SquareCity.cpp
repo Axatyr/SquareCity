@@ -1,14 +1,8 @@
 #include "Lib.h"
 #include "ShaderMaker.h"
 #include "Geometria.h"
-//#include "GestioneTesto.h"
-#include "GestioneEventi.h"
-
 #include "objloader.hpp"
-//#include "VAO.h"
 #include "Materiale.h"
-//#include "Texture.h"
-//#include "Loader.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
@@ -26,15 +20,15 @@ int heightRes = height;
 static unsigned int programId, programId_text, programId_Sfondo, programIdr;
 static unsigned int  MatrixProj, MatrixProj_txt, MatrixProjS;
 static unsigned int MatModel, MatModelS, MatView, MatViewS;
-// Da guardare queste variabili a cosa servono
+
+// Luci, mouse ecc
 static unsigned int loc_time, loc_res, loc_mouse;
-// Da capire pure queste
 static unsigned int lsh, lscelta, loc_view_pos, lblinn;
 
-// Da cancellare mi sa unsigned int VAO_Text, VBO_Text;
+// Oggetto selezionato
 int selected_obj = -1;
 
-//texture
+// Texture
 unsigned int legno, pavimento_piazza, muro, luna, foglie, vetro, mosaico, tegole, planet;
 
 // Gestione camera
@@ -57,9 +51,12 @@ vector<vec3> lightPositions = {
 	vec3(13.0, 5.0, -12.0),
 	vec3(13.0, 5.0, 12.0)
 };
+
 LightShaderUniform light_unif[5];
 point_light lights[5];
+
 float angolo = 0.0; // Per luce
+
 GLfloat light_ambient[] = { 0.1f, 0.1f, 0.1f, 0.1f };
 GLfloat light_diffuse[] = { 1.0f, 1.0f, 1.0f, 0.0f };
 GLfloat light_specular[] = { 1.0f, 1.0f, 1.0f, 0.0f };
@@ -68,7 +65,7 @@ GLfloat pos2[] = { -13.0, 5.0, -12.0 };
 GLfloat pos3[] = { 13.0, 5.0, -12.0 };
 GLfloat pos4[] = { 13.0, 5.0, 12.0 };
 
-// Gestione movimento sole
+// Gestione movimento pianeta
 bool mattina = true, pomeriggio = false, sera = false, notte = false;
 float est = -100.0, nord = 70.0, ovest = 300.0, sud = 70.0;
 float fattoreVelocita = 0.2;
@@ -98,17 +95,14 @@ Mesh Palazzo2, Porta2, Finestra3, Finestra4, Finestra5;
 Mesh Palazzo3, Porta3, Finestra6, Finestra7;
 Mesh Palazzo4, Tetto2, Porta4, Finestra8;
 Figura Fontana;
+
+// Gestione posizione personaggio
 glm::vec4 currentPositionCharacter;
 glm::vec4 currentTargetCharacter;
 
-// Da controllare a cosa serve
-static float quan = 0;
-float posxN, posyN;
 vec2 resolution, mousepos;
 
 mat4 Projection, Projection_text, Model, View;
-float deltaTime = 0.0f;	// Time between current frame and last frame
-float lastFrame = 0.0f; // Time of last frame
 
 static vector<Material> materials;
 static vector<Shader> shaders;
@@ -190,7 +184,7 @@ void genera_texture(void)
 	}
 	stbi_image_free(data);
 
-	//luna
+	// Luna
 	glGenTextures(1, &luna);
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, luna);
@@ -265,13 +259,6 @@ void INIT_SHADER(void)
 	programId = ShaderMaker::createProgram(vertexShader, fragmentShader);
 	glUseProgram(programId);
 
-	//Generazione del program shader per la gestione del testo
-	/*
-	vertexShader = (char*)"VertexShader_Text.glsl";
-	fragmentShader = (char*)"FragmentShader_Text.glsl";
-
-	programId_text = ShaderMaker::createProgram(vertexShader, fragmentShader);
-	*/
 	vertexShader = (char*)"vertexShader_C.glsl";
 	fragmentShader = (char*)"fragmentShader_Sfondo.glsl";
 
@@ -347,22 +334,6 @@ void crea_VAO_Vector(Mesh* mesh)
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->indici.size() * sizeof(GLuint), mesh->indici.data(), GL_STATIC_DRAW);
 }
 
-void INIT_VAO_Text(void)
-{
-	// configure VAO/VBO for texture quads
-	/* ---------------------------------- -
-	glGenVertexArrays(1, &VAO_Text);
-	glGenBuffers(1, &VBO_Text);
-	glBindVertexArray(VAO_Text);
-	glBindBuffer(GL_ARRAY_BUFFER, VBO_Text);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-	*/
-}
-
 void INIT_VAO() {
 
 	legno = loadTexture("legno.jpg");
@@ -420,7 +391,7 @@ void INIT_VAO() {
 	Piazza.material = MaterialType::EMERALD;
 	Scena.push_back(Piazza);
 
-	//SOLE
+	//PIANETA
 	crea_sfera(&Pianeta, vec4(148.0/255.0, 0.0, 211.0/255.0, 1.0));
 	crea_VAO_Vector(&Pianeta);
 	Pianeta.posx = est;
@@ -435,8 +406,6 @@ void INIT_VAO() {
 	Pianeta.sceltaVS = 0;
 	Pianeta.material = MaterialType::RED_PLASTIC;
 	Scena.push_back(Pianeta);
-
-
 
 	//PANCHINA	
 	obj = loadOBJ(ObjDir + "panchina.obj", Panchina);
@@ -702,6 +671,7 @@ void INIT_VAO() {
 	Finestra7.sceltaVS = 0;
 	Finestra7.material = MaterialType::EMERALD;
 	Edificio3.push_back(Finestra7);
+
 	//4
 	//palazzo
 	crea_cubo(&Palazzo4, vec4(222.0 / 255.0, 184.0 / 255.0, 135.0 / 255.0, 1.0), vec4(222.0 / 255.0, 184.0 / 255.0, 135.0 / 255.0, 1.0));
@@ -830,24 +800,26 @@ void INIT_VAO() {
 	centri.push_back(vec3(1.0, 0.0, 0.0));
 	raggi.push_back(0.5);
 	Personaggio.push_back(BraccioDx);
+
 	//Assegno le posizioni iniziali dell'omino
 	for (int i = 0; i < Personaggio.size(); i++) {
 		Personaggio[i].posx = 0.0;
 		Personaggio[i].posy = 0.0;
 		Personaggio[i].posz = 10.0;
 	}
+
 	currentPositionCharacter = { Personaggio[0].posx, 1.70, Personaggio[0].posz, 0.0 };
 	currentTargetCharacter = { Personaggio[0].posx, 1.70, Personaggio[0].posz  + 2.0, 0.0 };
 }
 
 void INIT_Illuminazione() {
-	//luce sole
+	// Luce sole
 
 	lights[0].position = { 0.0, 21.0, 0.0 };
 	lights[0].color = { 1.0, 1.0, 1.0 };
 	lights[0].power = 1.5f;
 	
-	//luce lampioni
+	// Luce lampioni
 	for (int i = 1; i < lightPositions.size(); i++) {
 		lights[i].position = lightPositions[i];
 		lights[i].color = { 1.0, 1.0, 1.0 };
@@ -1010,7 +982,6 @@ void zoomOut() { // Alzarsi lungo l'asse y
 	ViewSetup.target += ViewSetup.direction;
 }
 void cambioScena(int vistaCorrente) {
-	/* In teoria sarà necessaio cambiare automaticamente la scena passando da fissa a mobile*/
 	if (vistaCorrente == 1) {
 		vistaCamera = 2;
 		//Ancoro la camera al personaggio
@@ -1061,19 +1032,6 @@ void resize(int w, int h)
 	heightRes = h;
 }
 
-// Windows info
-/*
-void resizeSecWind(int w, int h)
-{
-	glViewport(0, 0, w, h);
-	Projection_text = ortho(0.0f, (float)w, 0.0f, (float)h);
-
-	widthRes = w;
-	heightRes = h;
-}
-*/
-
-// Da sistemare
 void drawScene(void)
 {
 	resolution.x = (float)width;
@@ -1155,7 +1113,7 @@ void drawScene(void)
 			glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Fontana3D.Model));
 			glBindTexture(GL_TEXTURE_2D, mosaico);
 			glBindVertexArray(Fontana3D.VAO);
-			//glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
+			glDrawElements(GL_TRIANGLES, Fontana3D.indici.size() * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 			glBindVertexArray(0);
 		}
 		else if (Scena[k].nome == "albero") {
@@ -1343,36 +1301,9 @@ void drawScene(void)
 		glDrawElements(GL_TRIANGLES, (Edificio4[i].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 		glBindVertexArray(0);
 	}
-	/*
-	glEnd();
-	glFlush(); // This force the execution of OpenGL commands
-	*/
-	glutSwapBuffers();
-}
-
-// Windows info
-/*
-void drawSceneSecWind(void)
-{
-	/*
-	glClearColor(0.0, 1.0, 0.0, 0.0);
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	Projection_text = ortho(0.0f, (float)widthRes, 0.0f, (float)heightRes);
-
-	RenderText(programId_text, Projection_text, Operazione, VAO_Text, VBO_Text, 10.0f, 100.0f, 0.5f, glm::vec3(1.0, 0.0f, 0.2f));
-
-	RenderText(programId_text, Projection_text, stringa_asse, VAO_Text, VBO_Text, 10.0f, 70.0f, 0.5f, glm::vec3(1.0, 0.0f, 0.2f));
-
-	RenderText(programId_text, Projection_text, "Oggetto selezionato", VAO_Text, VBO_Text, 10.0f, 50.0f, 0.5f, glm::vec3(1.0, 0.0f, 0.2f));
-	if (selected_obj > -1)
-		RenderText(programId_text, Projection_text, Scena[selected_obj].nome.c_str(), VAO_Text, VBO_Text, 10.0f, 10.0f, 0.5f, glm::vec3(1.0, 0.0f, 0.2f));
 
 	glutSwapBuffers();
-	
 }
-*/
 
 void keyboardPressedEvent(unsigned char key, int x, int y) {
 	
@@ -1448,11 +1379,6 @@ void keyboardPressedEvent(unsigned char key, int x, int y) {
 		break;
 	}
 
-	/*
-	glutSetWindow(idfi);
-	glutPostRedisplay();
-	*/
-
 	// I tasti + e -  aggiornano lo spostamento a destra o a sinistra, la rotazione in segno antiorario o in senso orario, la scalatura come amplificazione o diminuizione delle dimensioni
 
 	float amount = .1;
@@ -1481,18 +1407,12 @@ void keyboardPressedEvent(unsigned char key, int x, int y) {
 		break;
 	}
 
-	/*
-	glutSetWindow(idfi);
-	glutPostRedisplay();
-	*/
-
 	glutSetWindow(idPrincipale);
 	glutPostRedisplay();
 }
 
 // Gestione selezione oggetti schermata secondaria
 vec3 get_ray_from_mouse(float mouse_x, float mouse_y) {
-
 
 	// mappiamo le coordinate di viewport del mouse [0,width], [height,0] in coordinate normalizzate [-1,1]  
 	float x = (2.0f * mouse_x) / width - 1.0;
@@ -1505,7 +1425,6 @@ vec3 get_ray_from_mouse(float mouse_x, float mouse_y) {
 	// eye space
 
 	vec4 ray_eye = inverse(Projection) * ray_clip;
-
 
 	ray_eye = vec4(ray_eye.x, ray_eye.y, -1.0, 0.0);
 
@@ -1580,10 +1499,7 @@ void mouse(int button, int state, int x, int y) {
 	}
 
 	printf("Oggetto selezionato %d \n", selected_obj);
-	/*
-	glutSetWindow(idfi);
-	glutPostRedisplay();
-	*/
+
 	glutSetWindow(idPrincipale);
 	glutPostRedisplay();
 
@@ -1690,10 +1606,7 @@ void update(int a)
 		angoloUp += 0.05;
 	if (angoloUp > 25)
 		angoloUp = 0; glutTimerFunc(10, update, 0);
-	/*
-	glutSetWindow(idfi);
-	glutPostRedisplay();
-	*/
+
 	glutSetWindow(idPrincipale);
 	glutPostRedisplay();
 }
@@ -1732,23 +1645,6 @@ int main(int argc, char* argv[])
 	glEnable(GL_ALPHA_TEST);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	//Inizializzo finestra per il rendering delle informazioni con tutti i suoi eventi le sue inizializzazioni e le sue impostazioni
-	/*
-	glutInitWindowSize(width_i, height_i);
-	glutInitWindowPosition(500, 350);
-	idfi = glutCreateWindow("Informazioni");
-	glutDisplayFunc(drawScene1);
-	glutReshapeFunc(resize1);
-
-	INIT_SHADER();
-	INIT_VAO_Text();
-	Init_Freetype();
-	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_BLEND);
-	glEnable(GL_ALPHA_TEST);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	*/
-
 	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 Projection (in vertex shader).
 	//QUesto identificativo sarà poi utilizzato per il trasferimento della matrice Projection al Vertex Shader
 	MatrixProj = glGetUniformLocation(programId, "Projection");
@@ -1760,7 +1656,6 @@ int main(int argc, char* argv[])
 	MatView = glGetUniformLocation(programId, "View");
 	loc_time = glGetUniformLocation(programId, "time");
 	loc_view_pos = glGetUniformLocation(programId, "ViewPos");
-
 
 	//Chiedo che mi venga restituito l'identificativo della variabile uniform mat4 Projection (in vertex shader).
 	//QUesto identificativo sarà poi utilizzato per il trasferimento della matrice Projection al Vertex Shader
