@@ -35,7 +35,7 @@ static unsigned int lsh, lscelta, loc_view_pos, lblinn;
 int selected_obj = -1;
 
 //texture
-unsigned int legno, pavimento_piazza, muro, luna, foglie, vetro, mosaico, tegole;
+unsigned int legno, pavimento_piazza, muro, luna, foglie, vetro, mosaico, tegole, planet;
 
 // Gestione camera
 int vistaCamera = 1; //vista generica, 2 per vista personaggio, 3 dall'alto 
@@ -92,7 +92,7 @@ float angoloUp = 0;
 
 // Oggetti nella scena
 static vector<Mesh> Personaggio, Lampione, Edificio1, Edificio2, Edificio3, Edificio4;
-Mesh Cubo, Piano, Piramide, Centri, Sole, Panchina, Albero, Fontana3D, Palo, Lampada, Piazza, Navicella;
+Mesh Cubo, Piano, Piramide, Centri, Pianeta, Panchina, Albero, Fontana3D, Palo, Lampada, Piazza, Navicella;
 Mesh Palazzo, Tetto, Porta, Finestra1, Finestra2;
 Mesh Palazzo2, Porta2, Finestra3, Finestra4, Finestra5;
 Mesh Palazzo3, Porta3, Finestra6, Finestra7;
@@ -373,6 +373,7 @@ void INIT_VAO() {
 	vetro = loadTexture("vetro.jpg");
 	mosaico = loadTexture("mosaico.jpg");
 	tegole = loadCubemap(faces);
+	planet = loadTexture("planet.jpg");
 
 	Mesh Sfondo;
 	string ObjDir = "object/";
@@ -420,20 +421,20 @@ void INIT_VAO() {
 	Scena.push_back(Piazza);
 
 	//SOLE
-	crea_sfera(&Sole, vec4(1.0, 216.0 / 255.0, 0.0, 1.0));
-	crea_VAO_Vector(&Sole);
-	Sole.posx = est;
-	Sole.posy = 0.0;
-	Sole.posz = 0.0;
-	Sole.Model = mat4(1.0);
-	Sole.Model = translate(Sole.Model, vec3(Sole.posx, Sole.posy, Sole.posz));
-	Sole.Model = scale(Sole.Model, vec3(2.5, 2.5, 2.5));
-	Sole.nome = "sole";
+	crea_sfera(&Pianeta, vec4(148.0/255.0, 0.0, 211.0/255.0, 1.0));
+	crea_VAO_Vector(&Pianeta);
+	Pianeta.posx = est;
+	Pianeta.posy = 0.0;
+	Pianeta.posz = 0.0;
+	Pianeta.Model = mat4(1.0);
+	Pianeta.Model = translate(Pianeta.Model, vec3(Pianeta.posx, Pianeta.posy, Pianeta.posz));
+	Pianeta.Model = scale(Pianeta.Model, vec3(2.5, 2.5, 2.5));
+	Pianeta.nome = "pianeta";
 	centri.push_back(vec3(0.0, 2.0, 0.0));
 	raggi.push_back(0.5);
-	Sole.sceltaVS = 0;
-	Sole.material = MaterialType::RED_PLASTIC;
-	Scena.push_back(Sole);
+	Pianeta.sceltaVS = 0;
+	Pianeta.material = MaterialType::RED_PLASTIC;
+	Scena.push_back(Pianeta);
 
 
 
@@ -1130,11 +1131,12 @@ void drawScene(void)
 	glDrawElements(GL_TRIANGLES, (Scena[2].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 
-	//Disegno Sole
+	//Disegno Pianeta
 	glUniform1i(lscelta, Scena[3].sceltaVS);
 	mat4 Model = mat4(1.0);
 	Model = translate(Model, vec3(Scena[3].posx, Scena[3].posy, Scena[3].posz)) * Scena[3].Model; 
 	glUniformMatrix4fv(MatModel, 1, GL_FALSE, value_ptr(Model));
+	glBindTexture(GL_TEXTURE_2D, planet);
 	glBindVertexArray(Scena[3].VAO);
 	glDrawElements(GL_TRIANGLES, (Scena[3].indici.size() - 1) * sizeof(GLuint), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
@@ -1642,7 +1644,8 @@ void decrescitaGiorno() {
 		Scena[3].posx += fattoreVelocita;
 		Scena[3].posy -= fattoreVelocita;
 	}
-}void decrescitaNotte() {
+}
+void decrescitaNotte() {
 	if (Scena[3].posy <= sud && Scena[3].posx <= 0.0) {
 		sera = false;
 		notte = true;
@@ -1651,7 +1654,8 @@ void decrescitaGiorno() {
 		Scena[3].posx -= fattoreVelocita;
 		Scena[3].posy -= fattoreVelocita;
 	}
-}void crescitaNotte() {
+}
+void crescitaNotte() {
 	if (Scena[3].posx <= est && Scena[3].posy >= 0.0) {
 		notte = false;
 		mattina = true;
